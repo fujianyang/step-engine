@@ -196,7 +196,9 @@ This is a conservative default. Future versions may support configurable rollbac
 
 ---
 
-## Exception Handling
+## ServiceException Handling
+
+ServiceException represents expected, service-visible failures that should be returned to the caller after workflow execution.
 
 StepEngine supports two kinds of failure signaling:
 
