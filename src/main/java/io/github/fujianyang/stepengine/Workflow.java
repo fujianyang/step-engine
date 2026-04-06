@@ -1,5 +1,6 @@
 package io.github.fujianyang.stepengine;
 
+import io.github.fujianyang.stepengine.exception.ServiceException;
 import io.github.fujianyang.stepengine.exception.WorkflowException;
 import io.github.fujianyang.stepengine.handler.StepHandler;
 import io.github.fujianyang.stepengine.outcome.PermanentFailure;
@@ -90,6 +91,14 @@ public final class Workflow<C> {
                     );
 
                 } catch (Exception exception) {
+
+                    if (exception instanceof ServiceException serviceException) {
+                        // NO retry
+                        // rollback (if needed)
+                        // rethrow
+                        handleRollbackAndRethrow(context, step, completedSteps, serviceException);
+                    }
+
                     if (!retryPolicy.shouldRetry(exception) || !retryPolicy.canRetry(attemptsUsed)) {
                         return handleFailureWithRollback(
                             context,
@@ -170,6 +179,37 @@ public final class Workflow<C> {
             failureCause,
             RollbackResult.succeeded()
         );
+    }
+
+    private void handleRollbackAndRethrow(
+        C context,
+        Step<C> failedStep,
+        List<Step<C>> completedSteps,
+        ServiceException serviceException
+    ) {
+        for (int i = completedSteps.size() - 1; i >= 0; i--) {
+            Step<C> completedStep = completedSteps.get(i);
+
+            var rollbackHandler = completedStep.rollback();
+            if (rollbackHandler.isEmpty()) {
+                continue;
+            }
+
+            try {
+                rollbackHandler.get().apply(context);
+            } catch (Exception rollbackException) {
+                serviceException.addSuppressed(
+                    new WorkflowException(
+                        "Rollback failed at step '" + completedStep.name()
+                            + "' after service exception in step '" + failedStep.name() + "'",
+                        rollbackException
+                    )
+                );
+                break;
+            }
+        }
+
+        throw serviceException;
     }
 
     public static final class Builder<C> {

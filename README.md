@@ -196,6 +196,39 @@ This is a conservative default. Future versions may support configurable rollbac
 
 ---
 
+## Exception Handling
+
+StepEngine supports two kinds of failure signaling:
+
+### 1. StepOutcome-based failures
+Steps can return:
+- `StepSuccess`
+- `RetryableFailure`
+- `PermanentFailure`
+
+These failures are handled entirely within the workflow and returned as `WorkflowResult`.
+
+### 2. ServiceException-based failures
+Steps may also throw `ServiceException` subclasses for expected service-visible failures such as:
+- invalid request
+- resource not found
+- conflict
+- forbidden operation
+
+When a step throws `ServiceException`, StepEngine:
+1. stops forward execution immediately
+2. runs rollback for previously completed rollback-capable steps
+3. rethrows the original `ServiceException`
+
+This allows framework-level exception handlers (for example Micronaut `ExceptionHandler`) to map the exception to an API response while still ensuring workflow cleanup is performed.
+
+### Retry behavior
+`ServiceException` is terminal and is never retried, even if the configured `RetryPolicy` would otherwise retry the thrown exception.
+
+### Rollback failure during ServiceException handling
+If rollback fails while handling a `ServiceException`, the original `ServiceException` is still rethrown. Rollback failure details are preserved for internal diagnostics and should not be exposed to API clients.
+
+
 ## 📦 Example
 
 ### Minimal workflow
@@ -210,7 +243,8 @@ public class ValidateRequestStep implements StepHandler<MyContext> {
     try {
       // business logic here
       if (!isValid(ctx)) {
-        return StepOutcome.permanentFailure("invalid request");
+        // InvalidRequestException extends ServiceException  
+        throw new InvalidRequestException("INVALID_REQUEST", "deviceId is required");
       }
       return StepOutcome.success();
     } catch (TimeoutException e) { // example of a retryable exception
@@ -265,7 +299,6 @@ public class WorkflowFactory {
     return Step.<MyContext>builder()
             .name("validate request")
             .forward(handler)
-            // no retry policy → default = no retry
             .build();
   }
 
