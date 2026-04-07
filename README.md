@@ -57,7 +57,7 @@ Each step defines:
 ```java
 Step<MyContext> step = Step.<MyContext>builder()
     .name("create-order")
-    .execute(ctx -> {
+    .forward(ctx -> {
         ctx.setOrderId(orderService.create(ctx.request()));
     })
     .rollback(ctx -> {
@@ -135,7 +135,6 @@ Behavior:
 - retried if allowed
 - if retries are exhausted:
   - rollback is triggered
-  - wrapped in `WorkflowException`
 
 ---
 

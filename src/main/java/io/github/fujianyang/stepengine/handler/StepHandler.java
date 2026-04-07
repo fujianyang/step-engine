@@ -8,5 +8,5 @@ public interface StepHandler<C> {
      *
      * @throws Exception to indicate step failure
      */
-    void execute(C context) throws Exception;
+    void forward(C context) throws Exception;
 }

@@ -1,7 +1,6 @@
 package io.github.fujianyang.stepengine;
 
 import io.github.fujianyang.stepengine.exception.ServiceException;
-import io.github.fujianyang.stepengine.exception.WorkflowException;
 import io.github.fujianyang.stepengine.retry.ExponentialBackoffRetryPolicy;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
 import org.junit.jupiter.api.Test;
@@ -48,14 +47,12 @@ class StepEngineExecutionTest {
             .retryPolicy(new NoRetryPolicy())
             .build();
 
-        WorkflowException exception = assertThrows(
-            WorkflowException.class,
+        IOException exception = assertThrows(
+            IOException.class,
             () -> engine.execute(context)
         );
 
-        assertEquals("Workflow failed at step 'call-downstream'", exception.getMessage());
-        assertInstanceOf(IOException.class, exception.getCause());
-        assertEquals("boom", exception.getCause().getMessage());
+        assertEquals("boom", exception.getMessage());
     }
 
     @Test
@@ -113,14 +110,13 @@ class StepEngineExecutionTest {
             )
             .build();
 
-        WorkflowException exception = assertThrows(
-            WorkflowException.class,
+        IOException exception = assertThrows(
+            IOException.class,
             () -> engine.execute(context)
         );
 
         assertEquals(3, attempts.get());
-        assertInstanceOf(IOException.class, exception.getCause());
-        assertEquals("still failing", exception.getCause().getMessage());
+        assertEquals("still failing", exception.getMessage());
     }
 
     @Test
@@ -207,12 +203,10 @@ class StepEngineExecutionTest {
             })
             .build();
 
-        WorkflowException exception = assertThrows(
-            WorkflowException.class,
+        IOException exception = assertThrows(
+            IOException.class,
             () -> engine.execute(context)
         );
-
-        assertSame(expected, exception.getCause());
     }
 
     private static final class TestContext {

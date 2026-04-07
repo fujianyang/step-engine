@@ -1,7 +1,6 @@
 package io.github.fujianyang.stepengine;
 
 import io.github.fujianyang.stepengine.exception.ServiceException;
-import io.github.fujianyang.stepengine.exception.WorkflowException;
 import io.github.fujianyang.stepengine.handler.RollbackHandler;
 import io.github.fujianyang.stepengine.handler.StepHandler;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
@@ -44,20 +43,16 @@ public final class StepEngine<C> {
             try {
                 executeStepWithRetry(step, context);
                 completedSteps.push(step);
-            } catch (ServiceException serviceException) {
-                rollbackCompletedSteps(completedSteps, context, serviceException);
-                throw serviceException;
-            } catch (WorkflowException workflowException) {
-                rollbackCompletedSteps(completedSteps, context, workflowException);
-                throw workflowException;
-            } catch (Exception exception) {
+            }catch (Exception exception) {
                 rollbackCompletedSteps(completedSteps, context, exception);
-                throw new WorkflowException(
-                    "Workflow failed at step '" + step.name() + "'",
-                    exception
-                );
+                rethrow(exception);
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void rethrow(Throwable throwable) throws E {
+        throw (E) throwable;
     }
 
     private void executeStepWithRetry(Step<C> step, C context) throws Exception {
@@ -68,7 +63,7 @@ public final class StepEngine<C> {
 
         while (true) {
             try {
-                step.handler().execute(context);
+                step.handler().forward(context);
                 return;
             } catch (ServiceException serviceException) {
                 throw serviceException;
@@ -98,12 +93,7 @@ public final class StepEngine<C> {
             try {
                 rollbackHandler.rollback(context);
             } catch (Exception rollbackException) {
-                originalFailure.addSuppressed(
-                    new WorkflowException(
-                        "Rollback failed for step '" + completedStep.name() + "'",
-                        rollbackException
-                    )
-                );
+                originalFailure.addSuppressed(rollbackException);
             }
         }
     }
@@ -119,15 +109,16 @@ public final class StepEngine<C> {
         try {
             Thread.sleep(delay.toMillis());
         } catch (InterruptedException interruptedException) {
+            // reset the interrupt flag and continue
             Thread.currentThread().interrupt();
 
-            WorkflowException workflowException = new WorkflowException(
+            RuntimeException interruptionFailure = new RuntimeException(
                 "Interrupted during retry backoff for step '" + stepName
                     + "' after attempt " + attemptNumber,
                 interruptedException
             );
-            workflowException.addSuppressed(originalException);
-            throw workflowException;
+            interruptionFailure.addSuppressed(originalException);
+            throw interruptionFailure;
         }
     }
 

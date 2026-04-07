@@ -1,6 +1,5 @@
 package io.github.fujianyang.stepengine;
 
-import io.github.fujianyang.stepengine.exception.WorkflowException;
 import io.github.fujianyang.stepengine.retry.ExponentialBackoffRetryPolicy;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
 import io.github.fujianyang.stepengine.retry.RetryPolicy;
@@ -133,7 +132,7 @@ class StepTest {
             .retryPolicy(enginePolicy)
             .build();
 
-        assertThrows(WorkflowException.class, () -> engine.execute(context));
+        assertThrows(IOException.class, () -> engine.execute(context));
 
         // should follow step policy (2 attempts), not engine (5)
         assertEquals(2, attempts.get());
@@ -161,7 +160,7 @@ class StepTest {
             .retryPolicy(enginePolicy)
             .build();
 
-        assertThrows(WorkflowException.class, () -> engine.execute(context));
+        assertThrows(IOException.class, () -> engine.execute(context));
 
         assertEquals(3, attempts.get());
     }
@@ -196,7 +195,7 @@ class StepTest {
             .retryPolicy(enginePolicy)
             .build();
 
-        assertThrows(WorkflowException.class, () -> engine.execute(context));
+        assertThrows(IOException.class, () -> engine.execute(context));
 
         assertEquals(1, attempts.get());
     }

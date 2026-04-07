@@ -1,7 +1,6 @@
 package io.github.fujianyang.stepengine;
 
 import io.github.fujianyang.stepengine.exception.ServiceException;
-import io.github.fujianyang.stepengine.exception.WorkflowException;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
 import org.junit.jupiter.api.Test;
 
@@ -67,12 +66,11 @@ class StepEngineRollbackTest {
             .retryPolicy(new NoRetryPolicy())
             .build();
 
-        WorkflowException exception = assertThrows(
-            WorkflowException.class,
+        assertThrows(
+            IOException.class,
             () -> engine.execute(context)
         );
 
-        assertInstanceOf(IOException.class, exception.getCause());
         assertEquals(
             List.of(
                 "execute-step-1",
@@ -100,7 +98,7 @@ class StepEngineRollbackTest {
             })
             .build();
 
-        assertThrows(WorkflowException.class, () -> engine.execute(context));
+        assertThrows(IOException.class, () -> engine.execute(context));
 
         assertEquals(
             List.of(
@@ -136,9 +134,7 @@ class StepEngineRollbackTest {
         );
 
         assertEquals(1, exception.getSuppressed().length);
-        assertInstanceOf(WorkflowException.class, exception.getSuppressed()[0]);
-        assertEquals("Rollback failed for step 'step-1'", exception.getSuppressed()[0].getMessage());
-        assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0].getCause());
+        assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0]);
     }
 
     @Test
@@ -158,17 +154,16 @@ class StepEngineRollbackTest {
             })
             .build();
 
-        WorkflowException exception = assertThrows(
-            WorkflowException.class,
+        IOException exception = assertThrows(
+            IOException.class,
             () -> engine.execute(context)
         );
 
-        assertInstanceOf(IOException.class, exception.getCause());
-        assertEquals(1, exception.getCause().getSuppressed().length);
-        assertInstanceOf(WorkflowException.class, exception.getCause().getSuppressed()[0]);
+        assertEquals(1, exception.getSuppressed().length);
+        assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0]);
         assertEquals(
-            "Rollback failed for step 'step-1'",
-            exception.getCause().getSuppressed()[0].getMessage()
+            "rollback failed",
+            exception.getSuppressed()[0].getMessage()
         );
     }
 
@@ -197,9 +192,7 @@ class StepEngineRollbackTest {
 
         assertSame(expected, actual);
         assertEquals(1, actual.getSuppressed().length);
-        assertInstanceOf(WorkflowException.class, actual.getSuppressed()[0]);
-        assertEquals("Rollback failed for step 'step-1'", actual.getSuppressed()[0].getMessage());
-        assertInstanceOf(IllegalStateException.class, actual.getSuppressed()[0].getCause());
+        assertInstanceOf(IllegalStateException.class, actual.getSuppressed()[0]);
     }
 
     @Test
@@ -220,19 +213,14 @@ class StepEngineRollbackTest {
             })
             .build();
 
-        WorkflowException exception = assertThrows(
-            WorkflowException.class,
+        IOException exception = assertThrows(
+            IOException.class,
             () -> engine.execute(context)
         );
 
-        assertSame(expected, exception.getCause());
-        assertEquals(1, exception.getCause().getSuppressed().length);
-        assertInstanceOf(WorkflowException.class, exception.getCause().getSuppressed()[0]);
-        assertEquals(
-            "Rollback failed for step 'step-1'",
-            exception.getCause().getSuppressed()[0].getMessage()
-        );
-        assertInstanceOf(IllegalStateException.class, exception.getCause().getSuppressed()[0].getCause());
+        assertSame(expected, exception);
+        assertEquals(1, exception.getSuppressed().length);
+        assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0]);
     }
 
     private static final class TestContext {
