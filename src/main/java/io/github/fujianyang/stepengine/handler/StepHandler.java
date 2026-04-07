@@ -1,9 +1,12 @@
 package io.github.fujianyang.stepengine.handler;
 
-import io.github.fujianyang.stepengine.outcome.StepOutcome;
-
 @FunctionalInterface
 public interface StepHandler<C> {
 
-    StepOutcome apply(C context) throws Exception;
+    /**
+     * Executes the forward logic of a workflow step.
+     *
+     * @throws Exception to indicate step failure
+     */
+    void execute(C context) throws Exception;
 }

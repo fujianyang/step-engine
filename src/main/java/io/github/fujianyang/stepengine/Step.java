@@ -9,71 +9,65 @@ import java.util.Optional;
 
 public final class Step<C> {
 
-    /**
-     * Mandatory step name
-     */
     private final String name;
-
-    /**
-     * Mandatory forward StepHandler
-     */
-    private final StepHandler<C> forward;
-
-    /**
-     * Optional RollbackHandler
-     */
-    private final RollbackHandler<C> rollback;
-
-    /**
-     * Optional step specific RetryPolicy, defaults to global RetryPolicy
-     */
+    private final StepHandler<C> handler;
+    private final RollbackHandler<C> rollbackHandler;
     private final RetryPolicy retryPolicy;
 
-    private Step(Builder<C> builder) {
-        this.name = requireNonBlank(builder.name, "name must not be blank");
-        this.forward = Objects.requireNonNull(builder.forward, "forward handler must not be null");
-        this.rollback = builder.rollback;
-        this.retryPolicy = builder.retryPolicy;
+    private Step(String name, StepHandler<C> handler, RollbackHandler<C> rollbackHandler, RetryPolicy retryPolicy) {
+        this.name = requireName(name);
+        this.handler = Objects.requireNonNull(handler, "handler must not be null");
+        this.rollbackHandler = rollbackHandler;
+        this.retryPolicy = retryPolicy;
     }
 
-    /**
-     * Convenient method to construct a Step object
-     */
-    public static <C> Step<C> of(String name, StepHandler<C> forward) {
-        return Step.<C>builder()
-            .name(name)
-            .forward(forward)
-            .build();
+    public static <C> Step<C> of(String name, StepHandler<C> handler) {
+        return new Step<>(name, handler, null, null);
     }
 
-    public String name() {
-        return name;
-    }
-
-    StepHandler<C> forward() {
-        return forward;
-    }
-
-    Optional<RollbackHandler<C>> rollback() {
-        return Optional.ofNullable(rollback);
-    }
-
-    Optional<RetryPolicy> retryPolicy() {
-        return Optional.ofNullable(retryPolicy);
-    }
-
-    boolean hasRollback() {
-        return rollback != null;
+    public static <C> Step<C> of(String name,
+                                 StepHandler<C> handler,
+                                 RollbackHandler<C> rollbackHandler) {
+        return new Step<>(name, handler, rollbackHandler, null);
     }
 
     public static <C> Builder<C> builder() {
         return new Builder<>();
     }
 
+    public String name() {
+        return name;
+    }
+
+    public StepHandler<C> handler() {
+        return handler;
+    }
+
+    public Optional<RollbackHandler<C>> rollbackHandler() {
+        return Optional.ofNullable(rollbackHandler);
+    }
+
+    public boolean supportsRollback() {
+        return rollbackHandler != null;
+    }
+
+    public Optional<RetryPolicy> retryPolicy() {
+        return Optional.ofNullable(retryPolicy);
+    }
+
+    private static String requireName(String name) {
+        Objects.requireNonNull(name, "name must not be null");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("name must not be blank");
+        }
+        return name;
+    }
+
     public static final class Builder<C> {
+
         private String name;
-        private StepHandler<C> forward;
-        private RollbackHandler<C> rollback;
+        private StepHandler<C> handler;
+        private RollbackHandler<C> rollbackHandler;
         private RetryPolicy retryPolicy;
 
         private Builder() {
@@ -84,13 +78,13 @@ public final class Step<C> {
             return this;
         }
 
-        public Builder<C> forward(StepHandler<C> forward) {
-            this.forward = forward;
+        public Builder<C> execute(StepHandler<C> handler) {
+            this.handler = handler;
             return this;
         }
 
-        public Builder<C> rollback(RollbackHandler<C> rollback) {
-            this.rollback = rollback;
+        public Builder<C> rollback(RollbackHandler<C> rollbackHandler) {
+            this.rollbackHandler = rollbackHandler;
             return this;
         }
 
@@ -100,20 +94,10 @@ public final class Step<C> {
         }
 
         public Step<C> build() {
-            if (name == null || name.isBlank()) {
-                throw new IllegalArgumentException("step name must not be blank");
+            if (handler == null) {
+                throw new IllegalStateException("step handler must be provided");
             }
-            if (forward == null) {
-                throw new IllegalArgumentException("step forward handler must not be null");
-            }
-            return new Step<>(this);
+            return new Step<>(name, handler, rollbackHandler, retryPolicy);
         }
-    }
-
-    private static String requireNonBlank(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(message);
-        }
-        return value;
     }
 }

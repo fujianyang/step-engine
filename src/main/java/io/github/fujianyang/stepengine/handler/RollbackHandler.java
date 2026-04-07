@@ -4,7 +4,9 @@ package io.github.fujianyang.stepengine.handler;
 public interface RollbackHandler<C> {
 
     /**
-     * @throws Exception to indicate a rollback failure
+     * Executes the compensating rollback logic for a previously completed step.
+     *
+     * @throws Exception to indicate rollback failure
      */
-    void apply(C context) throws Exception;
+    void rollback(C context) throws Exception;
 }
