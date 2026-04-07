@@ -242,18 +242,12 @@ public class ValidateRequestStep implements StepHandler<MyContext> {
 
   @Override
   public StepOutcome apply(MyContext ctx) {
-    try {
       // business logic here
       if (!isValid(ctx)) {
         // InvalidRequestException extends ServiceException  
         throw new InvalidRequestException("INVALID_REQUEST", "deviceId is required");
       }
       return StepOutcome.success();
-    } catch (TimeoutException e) { // example of a retryable exception
-      return StepOutcome.retryableFailure("timeout", e);
-    } catch (Exception e) {
-      return StepOutcome.permanentFailure("unexpected error", e);
-    }
   }
 }
 
