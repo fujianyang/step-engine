@@ -33,19 +33,17 @@ class ExponentialBackoffRetryPolicyTest {
     }
 
     @Test
-    void shouldCalculateExponentialDelayWithoutJitter() {
+    void shouldCalculateExponentialDelayWithJitter() {
         RetryPolicy policy = ExponentialBackoffRetryPolicy.builder()
             .maxAttempts(5)
             .initialDelay(Duration.ofMillis(100))
             .maxDelay(Duration.ofSeconds(5))
-            .multiplier(2.0)
-            .jitterEnabled(false)
             .build();
 
-        assertEquals(Duration.ofMillis(100), policy.backoffDelay(new IOException(), 1));
-        assertEquals(Duration.ofMillis(200), policy.backoffDelay(new IOException(), 2));
-        assertEquals(Duration.ofMillis(400), policy.backoffDelay(new IOException(), 3));
-        assertEquals(Duration.ofMillis(800), policy.backoffDelay(new IOException(), 4));
+        assertDelayInRange(policy.backoffDelay(1), 0, 100);
+        assertDelayInRange(policy.backoffDelay(2), 0, 200);
+        assertDelayInRange(policy.backoffDelay(3), 0, 400);
+        assertDelayInRange(policy.backoffDelay(4), 0, 800);
     }
 
     @Test
@@ -54,13 +52,11 @@ class ExponentialBackoffRetryPolicyTest {
             .maxAttempts(10)
             .initialDelay(Duration.ofMillis(500))
             .maxDelay(Duration.ofSeconds(1))
-            .multiplier(3.0)
-            .jitterEnabled(false)
             .build();
 
-        assertEquals(Duration.ofMillis(500), policy.backoffDelay(new IOException(), 1));
-        assertEquals(Duration.ofSeconds(1), policy.backoffDelay(new IOException(), 2));
-        assertEquals(Duration.ofSeconds(1), policy.backoffDelay(new IOException(), 3));
+        assertDelayInRange(policy.backoffDelay(1), 0, 500);
+        assertDelayInRange(policy.backoffDelay(2), 0, 1000);
+        assertDelayInRange(policy.backoffDelay(3), 0, 1000);
     }
 
     @Test
@@ -69,11 +65,9 @@ class ExponentialBackoffRetryPolicyTest {
             .maxAttempts(5)
             .initialDelay(Duration.ofMillis(100))
             .maxDelay(Duration.ofSeconds(5))
-            .multiplier(2.0)
-            .jitterEnabled(true)
             .build();
 
-        Duration delay = policy.backoffDelay(new IOException(), 3);
+        Duration delay = policy.backoffDelay(3);
 
         assertTrue(delay.toMillis() >= 0);
         assertTrue(delay.toMillis() <= 400);
@@ -113,17 +107,6 @@ class ExponentialBackoffRetryPolicyTest {
     }
 
     @Test
-    void shouldRejectInvalidMultiplier() {
-        IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> ExponentialBackoffRetryPolicy.builder()
-                .multiplier(0.99)
-        );
-
-        assertEquals("multiplier must be >= 1.0", exception.getMessage());
-    }
-
-    @Test
     void shouldRejectMaxDelayLessThanInitialDelayAtBuildTime() {
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
@@ -135,4 +118,11 @@ class ExponentialBackoffRetryPolicyTest {
 
         assertEquals("maxDelay must be >= initialDelay", exception.getMessage());
     }
+
+    private static void assertDelayInRange(Duration actual, long minMillis, long maxMillis) {
+        long actualMillis = actual.toMillis();
+        assertTrue(actualMillis >= minMillis && actualMillis <= maxMillis,
+            "Expected delay between " + minMillis + " and " + maxMillis + " ms, but was " + actualMillis + " ms");
+    }
+
 }

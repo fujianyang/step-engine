@@ -15,8 +15,7 @@ public interface RetryPolicy {
     /**
      * Returns the delay before the next retry attempt.
      *
-     * @param throwable the exception thrown by the step
      * @param attemptNumber the current attempt number, starting from 1
      */
-    Duration backoffDelay(Throwable throwable, int attemptNumber);
+    Duration backoffDelay(int attemptNumber);
 }

@@ -105,7 +105,9 @@ public final class StepEngine<C> {
                     throw exception;
                 }
 
-                Duration delay = effectivePolicy.backoffDelay(exception, attemptNumber);
+                log.info("Step '{}' retry, attempt={}", step.name(), attemptNumber);
+
+                Duration delay = effectivePolicy.backoffDelay(attemptNumber);
                 sleep(delay, step.name(), attemptNumber, exception);
 
                 attemptNumber++;

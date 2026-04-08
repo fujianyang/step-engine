@@ -1,8 +1,5 @@
 package io.github.fujianyang.stepengine.retry;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -10,21 +7,15 @@ import java.util.function.Predicate;
 
 public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
 
-    private static final Logger log = LoggerFactory.getLogger(ExponentialBackoffRetryPolicy.class);
-
     private final int maxAttempts;
     private final Duration initialDelay;
     private final Duration maxDelay;
-    private final double multiplier;
-    private final boolean jitterEnabled;
     private final Predicate<Throwable> retryablePredicate;
 
     private ExponentialBackoffRetryPolicy(Builder builder) {
         this.maxAttempts = builder.maxAttempts;
         this.initialDelay = builder.initialDelay;
         this.maxDelay = builder.maxDelay;
-        this.multiplier = builder.multiplier;
-        this.jitterEnabled = builder.jitterEnabled;
         this.retryablePredicate = builder.retryablePredicate;
     }
 
@@ -37,19 +28,17 @@ public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
         Objects.requireNonNull(throwable, "throwable must not be null");
         validateAttemptNumber(attemptNumber);
 
-        log.debug("attemp={}, max={}", attemptNumber, maxAttempts);
-
         return attemptNumber < maxAttempts && retryablePredicate.test(throwable);
     }
 
     @Override
-    public Duration backoffDelay(Throwable throwable, int attemptNumber) {
-        Objects.requireNonNull(throwable, "throwable must not be null");
+    public Duration backoffDelay(int attemptNumber) {
         validateAttemptNumber(attemptNumber);
 
         long delayMillis = calculateDelayMillis(attemptNumber);
 
-        if (jitterEnabled && delayMillis > 0) {
+        // always use jitter (simple + production-friendly)
+        if (delayMillis > 0) {
             delayMillis = ThreadLocalRandom.current().nextLong(delayMillis + 1);
         }
 
@@ -57,18 +46,12 @@ public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
     }
 
     private long calculateDelayMillis(int attemptNumber) {
-        double exponentialMultiplier = Math.pow(multiplier, attemptNumber - 1);
-        double rawDelayMillis = initialDelay.toMillis() * exponentialMultiplier;
+        long base = initialDelay.toMillis();
 
-        long boundedDelayMillis;
-        if (rawDelayMillis >= Long.MAX_VALUE) {
-            boundedDelayMillis = maxDelay.toMillis();
-        } else {
-            boundedDelayMillis = (long) rawDelayMillis;
-            boundedDelayMillis = Math.min(boundedDelayMillis, maxDelay.toMillis());
-        }
+        // equivalent to base * 2^(attempt-1)
+        long delay = base << (attemptNumber - 1);
 
-        return boundedDelayMillis;
+        return Math.min(delay, maxDelay.toMillis());
     }
 
     private static void validateAttemptNumber(int attemptNumber) {
@@ -78,16 +61,12 @@ public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
     }
 
     public static final class Builder {
-
         private int maxAttempts = 3;
         private Duration initialDelay = Duration.ofMillis(100);
         private Duration maxDelay = Duration.ofSeconds(5);
-        private double multiplier = 2.0;
-        private boolean jitterEnabled = true;
         private Predicate<Throwable> retryablePredicate = throwable -> true;
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder maxAttempts(int maxAttempts) {
             if (maxAttempts < 1) {
@@ -115,19 +94,6 @@ public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
             return this;
         }
 
-        public Builder multiplier(double multiplier) {
-            if (multiplier < 1.0) {
-                throw new IllegalArgumentException("multiplier must be >= 1.0");
-            }
-            this.multiplier = multiplier;
-            return this;
-        }
-
-        public Builder jitterEnabled(boolean jitterEnabled) {
-            this.jitterEnabled = jitterEnabled;
-            return this;
-        }
-
         public Builder retryOn(Predicate<Throwable> retryablePredicate) {
             this.retryablePredicate = Objects.requireNonNull(
                 retryablePredicate,
@@ -140,7 +106,6 @@ public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
             if (maxDelay.compareTo(initialDelay) < 0) {
                 throw new IllegalStateException("maxDelay must be >= initialDelay");
             }
-
             return new ExponentialBackoffRetryPolicy(this);
         }
     }

@@ -10,7 +10,7 @@ public final class NoRetryPolicy implements RetryPolicy {
     }
 
     @Override
-    public Duration backoffDelay(Throwable throwable, int attemptNumber) {
+    public Duration backoffDelay(int attemptNumber) {
         return Duration.ZERO;
     }
 }

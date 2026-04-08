@@ -104,8 +104,6 @@ class StepTest {
             .maxAttempts(5)
             .initialDelay(Duration.ZERO)
             .maxDelay(Duration.ZERO)
-            .multiplier(2.0)
-            .jitterEnabled(false)
             .retryOn(t -> true)
             .build();
 
@@ -113,8 +111,6 @@ class StepTest {
             .maxAttempts(2) // override to 2 attempts
             .initialDelay(Duration.ZERO)
             .maxDelay(Duration.ZERO)
-            .multiplier(2.0)
-            .jitterEnabled(false)
             .retryOn(t -> true)
             .build();
 
@@ -147,8 +143,6 @@ class StepTest {
             .maxAttempts(3)
             .initialDelay(Duration.ZERO)
             .maxDelay(Duration.ZERO)
-            .multiplier(2.0)
-            .jitterEnabled(false)
             .retryOn(t -> true)
             .build();
 
@@ -174,8 +168,6 @@ class StepTest {
             .maxAttempts(5)
             .initialDelay(Duration.ZERO)
             .maxDelay(Duration.ZERO)
-            .multiplier(2.0)
-            .jitterEnabled(false)
             .retryOn(t -> true)
             .build();
 

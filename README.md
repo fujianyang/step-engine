@@ -149,8 +149,6 @@ RetryPolicy retryPolicy = ExponentialBackoffRetryPolicy.builder()
     .maxAttempts(3)
     .initialDelay(Duration.ofMillis(100))
     .maxDelay(Duration.ofSeconds(2))
-    .multiplier(2.0)
-    .jitterEnabled(true)
     .retryOn(t -> true)
     .build();
 ```

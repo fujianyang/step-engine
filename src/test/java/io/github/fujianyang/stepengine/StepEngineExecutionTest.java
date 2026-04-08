@@ -74,8 +74,6 @@ class StepEngineExecutionTest {
                     .maxAttempts(3)
                     .initialDelay(Duration.ZERO)
                     .maxDelay(Duration.ZERO)
-                    .multiplier(2.0)
-                    .jitterEnabled(false)
                     .retryOn(t -> t instanceof IOException)
                     .build()
             )
@@ -103,8 +101,6 @@ class StepEngineExecutionTest {
                     .maxAttempts(3)
                     .initialDelay(Duration.ZERO)
                     .maxDelay(Duration.ZERO)
-                    .multiplier(2.0)
-                    .jitterEnabled(false)
                     .retryOn(t -> t instanceof IOException)
                     .build()
             )
@@ -134,8 +130,6 @@ class StepEngineExecutionTest {
                     .maxAttempts(5)
                     .initialDelay(Duration.ZERO)
                     .maxDelay(Duration.ZERO)
-                    .multiplier(2.0)
-                    .jitterEnabled(false)
                     .retryOn(t -> true)
                     .build()
             )
@@ -203,7 +197,7 @@ class StepEngineExecutionTest {
             })
             .build();
 
-        IOException exception = assertThrows(
+        assertThrows(
             IOException.class,
             () -> engine.execute(context)
         );
