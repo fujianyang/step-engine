@@ -11,9 +11,9 @@ It provides a simple and explicit way to orchestrate multi-step operations with 
 - Sequential workflow execution
 - Exception-driven failure model
 - Optional rollback (compensation) support
-- Pluggable retry policies for the StepEngine (e.g. exponential backoff with jitter)
-- Per-step retry policy override (optional)
-- Zero external dependencies
+- Pluggable retry policies (e.g. exponential backoff with jitter)
+- Optional per-step retry policy override
+- Minimal dependency footprint (SLF4J only)
 
 ---
 

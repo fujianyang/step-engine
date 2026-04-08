@@ -5,6 +5,8 @@ import io.github.fujianyang.stepengine.handler.RollbackHandler;
 import io.github.fujianyang.stepengine.handler.StepHandler;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
 import io.github.fujianyang.stepengine.retry.RetryPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -16,6 +18,8 @@ import java.util.Objects;
 import java.util.Set;
 
 public final class StepEngine<C> {
+
+    private static final Logger log = LoggerFactory.getLogger(StepEngine.class);
 
     private final List<Step<C>> steps;
     private final RetryPolicy retryPolicy;
@@ -39,14 +43,41 @@ public final class StepEngine<C> {
     public void execute(C context) {
         Deque<Step<C>> completedSteps = new ArrayDeque<>();
 
+        log.info("StepEngine started, steps={}", steps.size());
+
         for (Step<C> step : steps) {
             try {
+                log.debug("Step '{}' forwarding ...", step.name());
+
                 executeStepWithRetry(step, context);
                 completedSteps.push(step);
-            }catch (Exception exception) {
+
+                log.debug("Step '{}' forwarding ... done", step.name());
+
+            } catch (Exception exception) {
                 rollbackCompletedSteps(completedSteps, context, exception);
+                logException(step, exception);
                 rethrow(exception);
             }
+        }
+
+        log.info("StepEngine finished successfully");
+    }
+
+    private void logException(Step<C> step, Exception exception) {
+        if (exception instanceof ServiceException) {
+            log.warn(
+                "StepEngine terminated at step '{}' due to ServiceException: {}",
+                step.name(),
+                exception.getMessage()
+            );
+        } else {
+            log.error(
+                "StepEngine failed at step '{}': {}",
+                step.name(),
+                exception.getMessage(),
+                exception
+            );
         }
     }
 
@@ -66,8 +97,10 @@ public final class StepEngine<C> {
                 step.handler().forward(context);
                 return;
             } catch (ServiceException serviceException) {
+                log.warn("Step '{}' ServiceException: {}", step.name(), serviceException.getMessage());
                 throw serviceException;
             } catch (Exception exception) {
+                log.warn("Step '{}' Exception: {}", step.name(), exception.getMessage());
                 if (!effectivePolicy.shouldRetry(exception, attemptNumber)) {
                     throw exception;
                 }
@@ -91,8 +124,11 @@ public final class StepEngine<C> {
 
             RollbackHandler<C> rollbackHandler = completedStep.rollbackHandler().orElseThrow();
             try {
+                log.warn("Step '{}' rolling back", completedStep.name());
                 rollbackHandler.rollback(context);
+                log.warn("Step '{}' rolling back ... done", completedStep.name());
             } catch (Exception rollbackException) {
+                log.error("Step '{}' rolling back Exception: {}", completedStep.name(), rollbackException.getMessage());
                 originalFailure.addSuppressed(rollbackException);
             }
         }

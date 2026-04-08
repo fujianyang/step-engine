@@ -15,15 +15,40 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <junit.jupiter.version>5.12.2</junit.jupiter.version>
+
+        <!-- Maven plugins -->
+        <version.maven-compiler-plugin>3.15.0</version.maven-compiler-plugin>
+        <version.maven-surefire-plugin>3.5.4</version.maven-surefire-plugin>
+
+        <!-- Logging -->
+        <version.slf4j-api>2.0.17</version.slf4j-api>
+
+        <!-- Testing -->
+        <version.junit.jupiter>5.12.2</version.junit.jupiter>
+        <version.logback-classic>1.5.32</version.logback-classic>
+
     </properties>
 
     <dependencies>
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${version.slf4j-api}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>${junit.jupiter.version}</version>
+            <version>${version.junit.jupiter}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${version.logback-classic}</version>
+            <scope>test</scope>
+
         </dependency>
     </dependencies>
 
@@ -31,7 +56,7 @@
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.15.0</version>
+                <version>${version.maven-compiler-plugin}</version>
                 <configuration>
                     <release>${maven.compiler.release}</release>
                 </configuration>
@@ -39,7 +64,7 @@
 
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
+                <version>${version.maven-surefire-plugin}</version>
             </plugin>
         </plugins>
     </build>

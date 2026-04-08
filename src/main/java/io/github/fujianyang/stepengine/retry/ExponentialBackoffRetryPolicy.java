@@ -1,11 +1,16 @@
 package io.github.fujianyang.stepengine.retry;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 
 public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
+
+    private static final Logger log = LoggerFactory.getLogger(ExponentialBackoffRetryPolicy.class);
 
     private final int maxAttempts;
     private final Duration initialDelay;
@@ -31,6 +36,8 @@ public final class ExponentialBackoffRetryPolicy implements RetryPolicy {
     public boolean shouldRetry(Throwable throwable, int attemptNumber) {
         Objects.requireNonNull(throwable, "throwable must not be null");
         validateAttemptNumber(attemptNumber);
+
+        log.debug("attemp={}, max={}", attemptNumber, maxAttempts);
 
         return attemptNumber < maxAttempts && retryablePredicate.test(throwable);
     }
