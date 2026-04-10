@@ -8,11 +8,12 @@ It provides a simple and explicit way to orchestrate multi-step operations with 
 
 ## ✨ Features
 
-- Sequential workflow execution
+- Sequential and parallel step execution
 - Exception-driven failure model
 - Optional rollback (compensation) support
 - Pluggable retry policies (e.g. exponential backoff with jitter)
-- Optional per-step retry policy override
+- Optional per-step retry policy and executor override
+- Parallel execution via virtual threads (Java 21), with optional custom executor
 - Minimal dependency footprint (SLF4J only)
 
 ---
@@ -161,6 +162,57 @@ StepEngine<MyContext> engine = StepEngine.<MyContext>builder()
     .retryPolicy(retryPolicy)
     .build();
 ```
+
+---
+
+## ⚡ Parallel Steps
+
+When steps are independent and don't depend on each other's output, they can be executed concurrently using a `ParallelGroup`.
+
+```java
+StepEngine<MyContext> engine = StepEngine.<MyContext>builder()
+    .step("validate", ctx -> { ... })
+    .parallel(
+        ParallelGroup.<MyContext>builder()
+            .step(Step.of("call-service-A", ctx -> { ... }, ctx -> { ... }))
+            .step(Step.of("call-service-B", ctx -> { ... }, ctx -> { ... }))
+            .step(Step.of("call-service-C", ctx -> { ... }))
+            .build()
+    )
+    .step("persist", ctx -> { ... })
+    .build();
+```
+
+By default, parallel steps run on Java 21 virtual threads. A custom `Executor` can be set at the group level or per step:
+
+```java
+ParallelGroup.<MyContext>builder()
+    .step(Step.<MyContext>builder()
+        .name("rate-limited-call")
+        .execute(ctx -> { ... })
+        .executor(rateLimitedExecutor)
+        .build())
+    .step(Step.of("fast-call", ctx -> { ... }))
+    .executor(groupExecutor)  // default for steps without their own executor
+    .build()
+```
+
+Executor resolution order: step → group → virtual threads.
+
+### Failure behavior
+
+- **Wait-all**: when a step fails, other running steps finish their current attempt before the group fails
+- **ServiceException**: dooms the entire group — sibling steps stop retrying immediately
+- **Regular exceptions**: each step retries independently per its own retry policy
+- **Multiple failures**: the first exception is primary, others are attached as suppressed
+
+### Rollback in parallel groups
+
+If a parallel group fails, all successfully completed steps in the group are rolled back in parallel. Then any previously completed sequential steps are rolled back in reverse order.
+
+### Context thread-safety
+
+When using parallel steps, the context object must be safe for concurrent access. This is the caller's responsibility.
 
 ---
 

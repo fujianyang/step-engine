@@ -6,6 +6,7 @@ import io.github.fujianyang.stepengine.retry.RetryPolicy;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 public final class Step<C> {
 
@@ -13,22 +14,25 @@ public final class Step<C> {
     private final StepHandler<C> handler;
     private final RollbackHandler<C> rollbackHandler;
     private final RetryPolicy retryPolicy;
+    private final Executor executor;
 
-    private Step(String name, StepHandler<C> handler, RollbackHandler<C> rollbackHandler, RetryPolicy retryPolicy) {
+    private Step(String name, StepHandler<C> handler, RollbackHandler<C> rollbackHandler,
+                 RetryPolicy retryPolicy, Executor executor) {
         this.name = requireName(name);
         this.handler = Objects.requireNonNull(handler, "handler must not be null");
         this.rollbackHandler = rollbackHandler;
         this.retryPolicy = retryPolicy;
+        this.executor = executor;
     }
 
     public static <C> Step<C> of(String name, StepHandler<C> handler) {
-        return new Step<>(name, handler, null, null);
+        return new Step<>(name, handler, null, null, null);
     }
 
     public static <C> Step<C> of(String name,
                                  StepHandler<C> handler,
                                  RollbackHandler<C> rollbackHandler) {
-        return new Step<>(name, handler, rollbackHandler, null);
+        return new Step<>(name, handler, rollbackHandler, null, null);
     }
 
     public static <C> Builder<C> builder() {
@@ -55,6 +59,10 @@ public final class Step<C> {
         return Optional.ofNullable(retryPolicy);
     }
 
+    public Optional<Executor> executor() {
+        return Optional.ofNullable(executor);
+    }
+
     private static String requireName(String name) {
         Objects.requireNonNull(name, "name must not be null");
         if (name.isBlank()) {
@@ -69,6 +77,7 @@ public final class Step<C> {
         private StepHandler<C> handler;
         private RollbackHandler<C> rollbackHandler;
         private RetryPolicy retryPolicy;
+        private Executor executor;
 
         private Builder() {
         }
@@ -93,11 +102,16 @@ public final class Step<C> {
             return this;
         }
 
+        public Builder<C> executor(Executor executor) {
+            this.executor = executor;
+            return this;
+        }
+
         public Step<C> build() {
             if (handler == null) {
                 throw new IllegalStateException("step handler must be provided");
             }
-            return new Step<>(name, handler, rollbackHandler, retryPolicy);
+            return new Step<>(name, handler, rollbackHandler, retryPolicy, executor);
         }
     }
 }
