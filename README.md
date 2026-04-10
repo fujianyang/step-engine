@@ -11,6 +11,7 @@ It provides a simple and explicit way to orchestrate multi-step operations with 
 - Sequential and parallel step execution
 - Exception-driven failure model
 - Optional rollback (compensation) support
+- Optional per-step timeout
 - Pluggable retry policies (e.g. exponential backoff with jitter)
 - Optional per-step retry policy and executor override
 - Parallel execution via virtual threads (Java 21), with optional custom executor
@@ -162,6 +163,38 @@ StepEngine<MyContext> engine = StepEngine.<MyContext>builder()
     .retryPolicy(retryPolicy)
     .build();
 ```
+
+---
+
+## ⏱️ Timeout
+
+A per-step timeout bounds how long each `forward()` or `rollback()` invocation can take.
+
+```java
+Step.<MyContext>builder()
+    .name("call-downstream")
+    .execute(ctx -> ctx.setResult(callService(ctx.request())))
+    .timeout(Duration.ofSeconds(5))
+    .build()
+```
+
+When a timeout fires:
+- A `StepTimeoutException` is thrown
+- It is treated as a regular exception — retryable per the retry policy
+- Each retry attempt gets a fresh timeout window
+
+The timeout applies independently to each `forward()` call and each `rollback()` call.
+
+### Cooperative interruption
+
+Step timeout uses Java's `Future.cancel(true)`, which calls `Thread.interrupt()` on the worker thread. This is **cooperative** — the step handler must be in an interruptible operation for the interruption to take effect immediately:
+
+- **Responds promptly**: `Thread.sleep()`, `Object.wait()`, NIO channels, `Future.get()`
+- **Does not respond**: traditional blocking I/O (`Socket.read()`, `HttpURLConnection`), CPU-bound computation
+
+In all cases, the timeout guarantees that the **caller does not wait** longer than the specified duration. However, if the step handler is stuck in a non-interruptible operation, the underlying thread may continue running in the background.
+
+For best results, ensure your step handlers use clients with their own socket/connection timeouts configured. The step timeout acts as a ceiling above those.
 
 ---
 

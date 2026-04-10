@@ -1,6 +1,7 @@
 package io.github.fujianyang.stepengine;
 
 import io.github.fujianyang.stepengine.exception.ServiceException;
+import io.github.fujianyang.stepengine.exception.StepTimeoutException;
 import io.github.fujianyang.stepengine.handler.RollbackHandler;
 import io.github.fujianyang.stepengine.handler.StepHandler;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
@@ -17,11 +18,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -145,7 +151,7 @@ public final class StepEngine<C> {
 
         while (true) {
             try {
-                step.handler().forward(context);
+                invokeWithTimeout(() -> step.handler().forward(context), step);
                 return;
             } catch (ServiceException serviceException) {
                 log.warn("Step '{}' ServiceException: {}", step.name(), serviceException.getMessage());
@@ -195,7 +201,7 @@ public final class StepEngine<C> {
         RollbackHandler<C> rollbackHandler = step.rollbackHandler().orElseThrow();
         try {
             log.warn("Step '{}' rolling back", step.name());
-            rollbackHandler.rollback(context);
+            invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
             log.warn("Step '{}' rolling back ... done", step.name());
         } catch (Exception rollbackException) {
             log.error("Step '{}' rolling back Exception: {}", step.name(), rollbackException.getMessage());
@@ -225,7 +231,7 @@ public final class StepEngine<C> {
                         RollbackHandler<C> rollbackHandler = step.rollbackHandler().orElseThrow();
                         try {
                             log.warn("Step '{}' rolling back (parallel)", step.name());
-                            rollbackHandler.rollback(context);
+                            invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
                             log.warn("Step '{}' rolling back ... done (parallel)", step.name());
                         } catch (Exception rollbackException) {
                             log.error("Step '{}' rolling back Exception: {}", step.name(), rollbackException.getMessage());
@@ -239,6 +245,38 @@ public final class StepEngine<C> {
 
             CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
         }
+    }
+
+    private void invokeWithTimeout(ThrowingRunnable action, Step<C> step) throws Exception {
+        Duration timeout = step.timeout().orElse(null);
+        if (timeout == null) {
+            action.run();
+            return;
+        }
+
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<?> future = executor.submit(() -> {
+                action.run();
+                return null;
+            });
+
+            try {
+                future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                future.cancel(true);
+                throw new StepTimeoutException(step.name(), timeout);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof Exception ex) throw ex;
+                if (cause instanceof Error err) throw err;
+                throw new RuntimeException(cause);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     private void logException(ExecutionUnit<C> unit, Exception exception) {

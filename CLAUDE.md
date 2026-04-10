@@ -42,6 +42,7 @@ On failure:
 | `StepHandler<C>` | `@FunctionalInterface` — `void forward(C context) throws Exception` |
 | `RollbackHandler<C>` | `@FunctionalInterface` — `void rollback(C context) throws Exception` |
 | `ServiceException` | Abstract base for expected business failures (carries an `errorCode`); never retried |
+| `StepTimeoutException` | Thrown when a step's `forward()` or `rollback()` exceeds its timeout; retryable (extends `RuntimeException`) |
 | `RetryPolicy` | Interface: `shouldRetry(Throwable, attemptNumber)` + `backoffDelay(attemptNumber)` |
 | `ExponentialBackoffRetryPolicy` | Built-in policy with jitter; defaults: maxAttempts=3, initialDelay=100ms, maxDelay=5s |
 | `NoRetryPolicy` | Default when no policy is set; never retries |
@@ -50,7 +51,11 @@ On failure:
 
 A `Step` can carry its own `RetryPolicy` (set via `Step.builder().retryPolicy(...)`). `StepEngine` uses the step-level policy if present, otherwise falls back to the engine-level policy.
 
-### Parallel steps (planned)
+### Step timeout
+
+`Step` has an optional `Duration timeout` that bounds each `forward()` and `rollback()` invocation independently. Implemented via `Future.cancel(true)` on a virtual thread — cooperative interruption, not a hard kill. `StepTimeoutException` (extends `RuntimeException`, not `ServiceException`) is thrown on timeout and is retryable by default.
+
+### Parallel steps
 
 Support for running independent steps concurrently via `.parallel(ParallelGroup)`.
 
