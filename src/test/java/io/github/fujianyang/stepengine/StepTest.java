@@ -14,17 +14,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class StepTest {
 
     @Test
-    void shouldCreateStepWithoutRollbackUsingOf() {
+    void shouldCreateStepWithoutCompensateUsingOf() {
         Step<TestContext> step = Step.of("validate", context -> context.value = "ok");
 
         assertEquals("validate", step.name());
-        assertFalse(step.supportsRollback());
-        assertTrue(step.rollbackHandler().isEmpty());
+        assertFalse(step.supportsCompensate());
+        assertTrue(step.compensateHandler().isEmpty());
         assertNotNull(step.handler());
     }
 
     @Test
-    void shouldCreateStepWithRollbackUsingOf() {
+    void shouldCreateStepWithCompensateUsingOf() {
         Step<TestContext> step = Step.of(
             "persist",
             context -> context.value = "saved",
@@ -32,8 +32,8 @@ class StepTest {
         );
 
         assertEquals("persist", step.name());
-        assertTrue(step.supportsRollback());
-        assertTrue(step.rollbackHandler().isPresent());
+        assertTrue(step.supportsCompensate());
+        assertTrue(step.compensateHandler().isPresent());
     }
 
     @Test
@@ -41,12 +41,12 @@ class StepTest {
         Step<TestContext> step = Step.<TestContext>builder()
             .name("create-order")
             .execute(context -> context.value = "created")
-            .rollback(context -> context.value = "rolled-back")
+            .compensate(context -> context.value = "compensated")
             .build();
 
         assertEquals("create-order", step.name());
-        assertTrue(step.supportsRollback());
-        assertTrue(step.rollbackHandler().isPresent());
+        assertTrue(step.supportsCompensate());
+        assertTrue(step.compensateHandler().isPresent());
     }
 
     @Test

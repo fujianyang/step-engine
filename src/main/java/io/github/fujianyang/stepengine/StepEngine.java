@@ -2,7 +2,7 @@ package io.github.fujianyang.stepengine;
 
 import io.github.fujianyang.stepengine.exception.ServiceException;
 import io.github.fujianyang.stepengine.exception.StepTimeoutException;
-import io.github.fujianyang.stepengine.handler.RollbackHandler;
+import io.github.fujianyang.stepengine.handler.CompensateHandler;
 import io.github.fujianyang.stepengine.handler.StepHandler;
 import io.github.fujianyang.stepengine.retry.NoRetryPolicy;
 import io.github.fujianyang.stepengine.retry.RetryPolicy;
@@ -75,7 +75,7 @@ public final class StepEngine<C> {
                 completedUnits.push(unit);
 
             } catch (Exception exception) {
-                rollbackCompletedUnits(completedUnits, context, exception);
+                compensateCompletedUnits(completedUnits, context, exception);
                 logException(unit, exception);
                 rethrow(exception);
             }
@@ -135,8 +135,8 @@ public final class StepEngine<C> {
                     primary.addSuppressed(failure);
                 }
             }
-            // Rollback completed steps in this group in parallel
-            rollbackStepsInParallel(completedSteps, context, primary, group);
+            // Compensate completed steps in this group in parallel
+            compensateStepsInParallel(completedSteps, context, primary, group);
             throw primary;
         }
 
@@ -177,30 +177,30 @@ public final class StepEngine<C> {
         }
     }
 
-    private void executeRollbackWithRetry(Step<C> step, RollbackHandler<C> rollbackHandler,
-                                           C context) throws Exception {
-        RetryPolicy rollbackPolicy = step.rollbackRetryPolicy().orElse(null);
+    private void executeCompensateWithRetry(Step<C> step, CompensateHandler<C> compensateHandler,
+                                            C context) throws Exception {
+        RetryPolicy compensatePolicy = step.compensateRetryPolicy().orElse(null);
 
-        if (rollbackPolicy == null) {
-            invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
+        if (compensatePolicy == null) {
+            invokeWithTimeout(() -> compensateHandler.compensate(context), step);
             return;
         }
 
         int attemptNumber = 1;
         while (true) {
             try {
-                invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
+                invokeWithTimeout(() -> compensateHandler.compensate(context), step);
                 return;
             } catch (Exception exception) {
-                log.warn("Step '{}' rollback Exception: {}", step.name(), exception.getMessage());
+                log.warn("Step '{}' compensate Exception: {}", step.name(), exception.getMessage());
 
-                if (!rollbackPolicy.shouldRetry(exception, attemptNumber)) {
+                if (!compensatePolicy.shouldRetry(exception, attemptNumber)) {
                     throw exception;
                 }
 
-                log.info("Step '{}' rollback retry, attempt={}", step.name(), attemptNumber);
+                log.info("Step '{}' compensate retry, attempt={}", step.name(), attemptNumber);
 
-                Duration delay = rollbackPolicy.backoffDelay(attemptNumber);
+                Duration delay = compensatePolicy.backoffDelay(attemptNumber);
                 sleep(delay, step.name(), attemptNumber, exception);
 
                 attemptNumber++;
@@ -208,66 +208,66 @@ public final class StepEngine<C> {
         }
     }
 
-    private void rollbackCompletedUnits(Deque<ExecutionUnit<C>> completedUnits,
-                                        C context,
-                                        Throwable originalFailure) {
+    private void compensateCompletedUnits(Deque<ExecutionUnit<C>> completedUnits,
+                                          C context,
+                                          Throwable originalFailure) {
         while (!completedUnits.isEmpty()) {
             ExecutionUnit<C> unit = completedUnits.pop();
             switch (unit) {
                 case ExecutionUnit.Sequential<C> seq -> {
-                    rollbackStep(seq.step(), context, originalFailure);
+                    compensateStep(seq.step(), context, originalFailure);
                 }
                 case ExecutionUnit.Parallel<C> par -> {
-                    rollbackStepsInParallel(par.group().steps(), context, originalFailure, par.group());
+                    compensateStepsInParallel(par.group().steps(), context, originalFailure, par.group());
                 }
             }
         }
     }
 
-    private void rollbackStep(Step<C> step, C context, Throwable originalFailure) {
-        if (!step.supportsRollback()) {
+    private void compensateStep(Step<C> step, C context, Throwable originalFailure) {
+        if (!step.supportsCompensate()) {
             return;
         }
 
-        RollbackHandler<C> rollbackHandler = step.rollbackHandler().orElseThrow();
+        CompensateHandler<C> compensateHandler = step.compensateHandler().orElseThrow();
         try {
-            log.warn("Step '{}' rolling back", step.name());
-            executeRollbackWithRetry(step, rollbackHandler, context);
-            log.warn("Step '{}' rolling back ... done", step.name());
-        } catch (Exception rollbackException) {
-            log.error("Step '{}' rolling back Exception: {}", step.name(), rollbackException.getMessage());
-            originalFailure.addSuppressed(rollbackException);
+            log.warn("Step '{}' compensating", step.name());
+            executeCompensateWithRetry(step, compensateHandler, context);
+            log.warn("Step '{}' compensating ... done", step.name());
+        } catch (Exception compensateException) {
+            log.error("Step '{}' compensating Exception: {}", step.name(), compensateException.getMessage());
+            originalFailure.addSuppressed(compensateException);
         }
     }
 
-    private void rollbackStepsInParallel(List<Step<C>> steps,
-                                         C context,
-                                         Throwable originalFailure,
-                                         ParallelGroup<C> group) {
-        List<Step<C>> rollbackable = steps.stream()
-            .filter(Step::supportsRollback)
+    private void compensateStepsInParallel(List<Step<C>> steps,
+                                           C context,
+                                           Throwable originalFailure,
+                                           ParallelGroup<C> group) {
+        List<Step<C>> compensatable = steps.stream()
+            .filter(Step::supportsCompensate)
             .toList();
 
-        if (rollbackable.isEmpty()) {
+        if (compensatable.isEmpty()) {
             return;
         }
 
         try (ExecutorService defaultExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<CompletableFuture<Void>> futures = rollbackable.stream()
+            List<CompletableFuture<Void>> futures = compensatable.stream()
                 .map(step -> {
                     Executor executor = step.executor()
                         .orElse(group.executor().orElse(defaultExecutor));
 
                     return CompletableFuture.runAsync(() -> {
-                        RollbackHandler<C> rollbackHandler = step.rollbackHandler().orElseThrow();
+                        CompensateHandler<C> compensateHandler = step.compensateHandler().orElseThrow();
                         try {
-                            log.warn("Step '{}' rolling back (parallel)", step.name());
-                            executeRollbackWithRetry(step, rollbackHandler, context);
-                            log.warn("Step '{}' rolling back ... done (parallel)", step.name());
-                        } catch (Exception rollbackException) {
-                            log.error("Step '{}' rolling back Exception: {}", step.name(), rollbackException.getMessage());
+                            log.warn("Step '{}' compensating (parallel)", step.name());
+                            executeCompensateWithRetry(step, compensateHandler, context);
+                            log.warn("Step '{}' compensating ... done (parallel)", step.name());
+                        } catch (Exception compensateException) {
+                            log.error("Step '{}' compensating Exception: {}", step.name(), compensateException.getMessage());
                             synchronized (originalFailure) {
-                                originalFailure.addSuppressed(rollbackException);
+                                originalFailure.addSuppressed(compensateException);
                             }
                         }
                     }, executor);
@@ -402,8 +402,8 @@ public final class StepEngine<C> {
 
         public Builder<C> step(String name,
                                StepHandler<C> handler,
-                               RollbackHandler<C> rollbackHandler) {
-            units.add(new ExecutionUnit.Sequential<>(Step.of(name, handler, rollbackHandler)));
+                               CompensateHandler<C> compensateHandler) {
+            units.add(new ExecutionUnit.Sequential<>(Step.of(name, handler, compensateHandler)));
             return this;
         }
 

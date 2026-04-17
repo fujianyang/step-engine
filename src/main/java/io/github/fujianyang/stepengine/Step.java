@@ -1,6 +1,6 @@
 package io.github.fujianyang.stepengine;
 
-import io.github.fujianyang.stepengine.handler.RollbackHandler;
+import io.github.fujianyang.stepengine.handler.CompensateHandler;
 import io.github.fujianyang.stepengine.handler.StepHandler;
 import io.github.fujianyang.stepengine.retry.RetryPolicy;
 
@@ -13,20 +13,20 @@ public final class Step<C> {
 
     private final String name;
     private final StepHandler<C> handler;
-    private final RollbackHandler<C> rollbackHandler;
+    private final CompensateHandler<C> compensateHandler;
     private final RetryPolicy retryPolicy;
-    private final RetryPolicy rollbackRetryPolicy;
+    private final RetryPolicy compensateRetryPolicy;
     private final Executor executor;
     private final Duration timeout;
 
-    private Step(String name, StepHandler<C> handler, RollbackHandler<C> rollbackHandler,
-                 RetryPolicy retryPolicy, RetryPolicy rollbackRetryPolicy,
+    private Step(String name, StepHandler<C> handler, CompensateHandler<C> compensateHandler,
+                 RetryPolicy retryPolicy, RetryPolicy compensateRetryPolicy,
                  Executor executor, Duration timeout) {
         this.name = requireName(name);
         this.handler = Objects.requireNonNull(handler, "handler must not be null");
-        this.rollbackHandler = rollbackHandler;
+        this.compensateHandler = compensateHandler;
         this.retryPolicy = retryPolicy;
-        this.rollbackRetryPolicy = rollbackRetryPolicy;
+        this.compensateRetryPolicy = compensateRetryPolicy;
         this.executor = executor;
         this.timeout = validateTimeout(timeout);
     }
@@ -37,8 +37,8 @@ public final class Step<C> {
 
     public static <C> Step<C> of(String name,
                                  StepHandler<C> handler,
-                                 RollbackHandler<C> rollbackHandler) {
-        return new Step<>(name, handler, rollbackHandler, null, null, null, null);
+                                 CompensateHandler<C> compensateHandler) {
+        return new Step<>(name, handler, compensateHandler, null, null, null, null);
     }
 
     public static <C> Builder<C> builder() {
@@ -53,20 +53,20 @@ public final class Step<C> {
         return handler;
     }
 
-    public Optional<RollbackHandler<C>> rollbackHandler() {
-        return Optional.ofNullable(rollbackHandler);
+    public Optional<CompensateHandler<C>> compensateHandler() {
+        return Optional.ofNullable(compensateHandler);
     }
 
-    public boolean supportsRollback() {
-        return rollbackHandler != null;
+    public boolean supportsCompensate() {
+        return compensateHandler != null;
     }
 
     public Optional<RetryPolicy> retryPolicy() {
         return Optional.ofNullable(retryPolicy);
     }
 
-    public Optional<RetryPolicy> rollbackRetryPolicy() {
-        return Optional.ofNullable(rollbackRetryPolicy);
+    public Optional<RetryPolicy> compensateRetryPolicy() {
+        return Optional.ofNullable(compensateRetryPolicy);
     }
 
     public Optional<Executor> executor() {
@@ -96,9 +96,9 @@ public final class Step<C> {
 
         private String name;
         private StepHandler<C> handler;
-        private RollbackHandler<C> rollbackHandler;
+        private CompensateHandler<C> compensateHandler;
         private RetryPolicy retryPolicy;
-        private RetryPolicy rollbackRetryPolicy;
+        private RetryPolicy compensateRetryPolicy;
         private Executor executor;
         private Duration timeout;
 
@@ -115,8 +115,8 @@ public final class Step<C> {
             return this;
         }
 
-        public Builder<C> rollback(RollbackHandler<C> rollbackHandler) {
-            this.rollbackHandler = rollbackHandler;
+        public Builder<C> compensate(CompensateHandler<C> compensateHandler) {
+            this.compensateHandler = compensateHandler;
             return this;
         }
 
@@ -125,8 +125,8 @@ public final class Step<C> {
             return this;
         }
 
-        public Builder<C> rollbackRetryPolicy(RetryPolicy rollbackRetryPolicy) {
-            this.rollbackRetryPolicy = rollbackRetryPolicy;
+        public Builder<C> compensateRetryPolicy(RetryPolicy compensateRetryPolicy) {
+            this.compensateRetryPolicy = compensateRetryPolicy;
             return this;
         }
 
@@ -144,7 +144,7 @@ public final class Step<C> {
             if (handler == null) {
                 throw new IllegalStateException("step handler must be provided");
             }
-            return new Step<>(name, handler, rollbackHandler, retryPolicy, rollbackRetryPolicy, executor, timeout);
+            return new Step<>(name, handler, compensateHandler, retryPolicy, compensateRetryPolicy, executor, timeout);
         }
     }
 }

@@ -31,18 +31,18 @@ StepEngine is a small library with no external runtime dependencies (SLF4J only)
 On failure:
 1. If the exception is a `ServiceException` (or subclass), it is rethrown immediately — no retry.
 2. Otherwise the active `RetryPolicy` is consulted (`shouldRetry` + `backoffDelay`). When retries are exhausted, the exception propagates.
-3. In either case, already-completed steps are rolled back in reverse order (best-effort). Rollback failures are attached as suppressed exceptions on the original failure.
+3. In either case, already-completed steps are compensated in reverse order (best-effort). Compensation failures are attached as suppressed exceptions on the original failure.
 
 ### Key types
 
 | Type | Purpose |
 |------|---------|
 | `StepEngine<C>` | Orchestrator; built via `StepEngine.builder()` |
-| `Step<C>` | A named unit of work with a forward handler, optional rollback handler, and optional per-step `RetryPolicy` override |
+| `Step<C>` | A named unit of work with a forward handler, optional compensate handler, and optional per-step `RetryPolicy` override |
 | `StepHandler<C>` | `@FunctionalInterface` — `void forward(C context) throws Exception` |
-| `RollbackHandler<C>` | `@FunctionalInterface` — `void rollback(C context) throws Exception` |
+| `CompensateHandler<C>` | `@FunctionalInterface` — `void compensate(C context) throws Exception` |
 | `ServiceException` | Abstract base for expected business failures (carries an `errorCode`); never retried |
-| `StepTimeoutException` | Thrown when a step's `forward()` or `rollback()` exceeds its timeout; retryable (extends `RuntimeException`) |
+| `StepTimeoutException` | Thrown when a step's `forward()` or `compensate()` exceeds its timeout; retryable (extends `RuntimeException`) |
 | `RetryPolicy` | Interface: `shouldRetry(Throwable, attemptNumber)` + `backoffDelay(attemptNumber)` |
 | `ExponentialBackoffRetryPolicy` | Built-in policy with jitter; defaults: maxAttempts=3, initialDelay=100ms, maxDelay=5s |
 | `NoRetryPolicy` | Default when no policy is set; never retries |
@@ -51,13 +51,13 @@ On failure:
 
 A `Step` can carry its own `RetryPolicy` (set via `Step.builder().retryPolicy(...)`). `StepEngine` uses the step-level policy if present, otherwise falls back to the engine-level policy.
 
-### Rollback retry
+### Compensate retry
 
-By default, rollback is not retried (best-effort, single attempt). A `Step` can opt in to rollback retries via `Step.builder().rollbackRetryPolicy(...)`. This is independent of the forward `retryPolicy` — they are separate concerns. When not set, rollback behaves as before (no retry, failure attached as suppressed exception).
+By default, compensation is not retried (best-effort, single attempt). A `Step` can opt in to compensate retries via `Step.builder().compensateRetryPolicy(...)`. This is independent of the forward `retryPolicy` — they are separate concerns. When not set, compensation behaves as before (no retry, failure attached as suppressed exception).
 
 ### Step timeout
 
-`Step` has an optional `Duration timeout` that bounds each `forward()` and `rollback()` invocation independently. Implemented via `Future.cancel(true)` on a virtual thread — cooperative interruption, not a hard kill. `StepTimeoutException` (extends `RuntimeException`, not `ServiceException`) is thrown on timeout and is retryable by default.
+`Step` has an optional `Duration timeout` that bounds each `forward()` and `compensate()` invocation independently. Implemented via `Future.cancel(true)` on a virtual thread — cooperative interruption, not a hard kill. `StepTimeoutException` (extends `RuntimeException`, not `ServiceException`) is thrown on timeout and is retryable by default.
 
 ### Parallel steps
 
@@ -91,12 +91,12 @@ StepEngine.<Ctx>builder()
 - **Regular exceptions**: each step retries independently per its own policy. The group fails only after a step exhausts retries without any ServiceException from a sibling.
 - **Multiple failures**: first exception (chronologically) is primary; others are suppressed.
 
-#### Rollback
+#### Compensation
 
 For `Step1 ✓ → [A ✓, B ✗, C ✓]`:
-1. Roll back A and C in parallel (they were independent forward, independent in reverse).
-2. Then roll back Step1.
-3. The failed step (B) is not rolled back — it never completed.
+1. Compensate A and C in parallel (they were independent forward, independent in reverse).
+2. Then compensate Step1.
+3. The failed step (B) is not compensated — it never completed.
 
 #### Context thread-safety
 

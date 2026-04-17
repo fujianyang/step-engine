@@ -2,7 +2,7 @@
 
 StepEngine is a lightweight workflow engine for short-running, idempotent workflows.
 
-It provides a simple and explicit way to orchestrate multi-step operations with retry and rollback support — without introducing external infrastructure or workflow persistence.
+It provides a simple and explicit way to orchestrate multi-step operations with retry and compensation support — without introducing external infrastructure or workflow persistence.
 
 ---
 
@@ -10,7 +10,7 @@ It provides a simple and explicit way to orchestrate multi-step operations with 
 
 - Sequential and parallel step execution
 - Exception-driven failure model
-- Optional rollback (compensation) support
+- Optional compensation support
 - Optional per-step timeout
 - Pluggable retry policies (e.g. exponential backoff with jitter)
 - Optional per-step retry policy and executor override
@@ -54,7 +54,7 @@ A `Step` represents a unit of work in a workflow.
 Each step defines:
 - a name
 - a forward handler (required)
-- an optional rollback handler
+- an optional compensate handler
 
 ```java
 Step<MyContext> step = Step.<MyContext>builder()
@@ -62,7 +62,7 @@ Step<MyContext> step = Step.<MyContext>builder()
     .forward(ctx -> {
         ctx.setOrderId(orderService.create(ctx.request()));
     })
-    .rollback(ctx -> {
+    .compensate(ctx -> {
         if (ctx.getOrderId() != null) {
             orderService.delete(ctx.getOrderId());
         }
@@ -121,7 +121,7 @@ throw new InvalidRequestException("INVALID_REQUEST", "deviceId is required");
 
 Behavior:
 - execution stops immediately
-- rollback is triggered
+- compensation is triggered
 - exception is rethrown as-is
 - never retried
 
@@ -136,7 +136,7 @@ Behavior:
 - evaluated by retry policy
 - retried if allowed
 - if retries are exhausted:
-  - rollback is triggered
+  - compensation is triggered
 
 ---
 
@@ -168,7 +168,7 @@ StepEngine<MyContext> engine = StepEngine.<MyContext>builder()
 
 ## ⏱️ Timeout
 
-A per-step timeout bounds how long each `forward()` or `rollback()` invocation can take.
+A per-step timeout bounds how long each `forward()` or `compensate()` invocation can take.
 
 ```java
 Step.<MyContext>builder()
@@ -183,7 +183,7 @@ When a timeout fires:
 - It is treated as a regular exception — retryable per the retry policy
 - Each retry attempt gets a fresh timeout window
 
-The timeout applies independently to each `forward()` call and each `rollback()` call.
+The timeout applies independently to each `forward()` call and each `compensate()` call.
 
 ### Cooperative interruption
 
@@ -239,9 +239,9 @@ Executor resolution order: step → group → virtual threads.
 - **Regular exceptions**: each step retries independently per its own retry policy
 - **Multiple failures**: the first exception is primary, others are attached as suppressed
 
-### Rollback in parallel groups
+### Compensation in parallel groups
 
-If a parallel group fails, all successfully completed steps in the group are rolled back in parallel. Then any previously completed sequential steps are rolled back in reverse order.
+If a parallel group fails, all successfully completed steps in the group are compensated in parallel. Then any previously completed sequential steps are compensated in reverse order.
 
 ### Context thread-safety
 
@@ -249,18 +249,18 @@ When using parallel steps, the context object must be safe for concurrent access
 
 ---
 
-## 🔄 Rollback
+## 🔄 Compensation
 
-If a step fails, all previously completed steps that support rollback are executed in reverse order.
+If a step fails, all previously completed steps that support compensation are executed in reverse order.
 
 ```text
 Step1 → Step2 → Step3 (fails)
-Rollback: Step2 → Step1
+Compensate: Step2 → Step1
 ```
 
-Rollback behavior:
+Compensation behavior:
 - best-effort
-- rollback failures are attached as suppressed exceptions
+- compensation failures are attached as suppressed exceptions
 - original failure is preserved
 
 ---

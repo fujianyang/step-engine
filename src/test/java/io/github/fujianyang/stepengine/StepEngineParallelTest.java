@@ -80,7 +80,7 @@ class StepEngineParallelTest {
     }
 
     @Test
-    void shouldRollbackCompletedParallelStepsOnFailure() {
+    void shouldCompensateCompletedParallelStepsOnFailure() {
         TestContext context = new TestContext();
         CountDownLatch aCompleted = new CountDownLatch(1);
 
@@ -92,7 +92,7 @@ class StepEngineParallelTest {
                             ctx.events.add("a-forward");
                             aCompleted.countDown();
                         },
-                        ctx -> ctx.events.add("a-rollback")))
+                        ctx -> ctx.events.add("a-compensate")))
                     .step(Step.of("b", ctx -> {
                         aCompleted.await();
                         ctx.events.add("b-forward");
@@ -109,23 +109,23 @@ class StepEngineParallelTest {
 
         assertEquals("b-failed", exception.getMessage());
         assertTrue(context.events.contains("a-forward"));
-        assertTrue(context.events.contains("a-rollback"));
+        assertTrue(context.events.contains("a-compensate"));
         assertTrue(context.events.contains("b-forward"));
-        assertFalse(context.events.contains("b-rollback"));
+        assertFalse(context.events.contains("b-compensate"));
     }
 
     @Test
-    void shouldRollbackPriorSequentialStepsAfterParallelGroupFails() {
+    void shouldCompensatePriorSequentialStepsAfterParallelGroupFails() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("seq-1",
                 ctx -> ctx.events.add("seq-1-forward"),
-                ctx -> ctx.events.add("seq-1-rollback"))
+                ctx -> ctx.events.add("seq-1-compensate"))
             .parallel(
                 ParallelGroup.<TestContext>builder()
                     .step(Step.of("a", ctx -> ctx.events.add("a-forward"),
-                        ctx -> ctx.events.add("a-rollback")))
+                        ctx -> ctx.events.add("a-compensate")))
                     .step(Step.of("b", ctx -> {
                         throw new IOException("b-failed");
                     }))
@@ -136,22 +136,22 @@ class StepEngineParallelTest {
         assertThrows(IOException.class, () -> engine.execute(context));
 
         assertTrue(context.events.contains("seq-1-forward"));
-        assertTrue(context.events.contains("seq-1-rollback"));
+        assertTrue(context.events.contains("seq-1-compensate"));
         assertTrue(context.events.contains("a-forward"));
-        assertTrue(context.events.contains("a-rollback"));
+        assertTrue(context.events.contains("a-compensate"));
     }
 
     @Test
-    void shouldRollbackParallelGroupWhenLaterSequentialStepFails() {
+    void shouldCompensateParallelGroupWhenLaterSequentialStepFails() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .parallel(
                 ParallelGroup.<TestContext>builder()
                     .step(Step.of("a", ctx -> ctx.events.add("a-forward"),
-                        ctx -> ctx.events.add("a-rollback")))
+                        ctx -> ctx.events.add("a-compensate")))
                     .step(Step.of("b", ctx -> ctx.events.add("b-forward"),
-                        ctx -> ctx.events.add("b-rollback")))
+                        ctx -> ctx.events.add("b-compensate")))
                     .build()
             )
             .step("after", ctx -> {
@@ -163,8 +163,8 @@ class StepEngineParallelTest {
 
         assertTrue(context.events.contains("a-forward"));
         assertTrue(context.events.contains("b-forward"));
-        assertTrue(context.events.contains("a-rollback"));
-        assertTrue(context.events.contains("b-rollback"));
+        assertTrue(context.events.contains("a-compensate"));
+        assertTrue(context.events.contains("b-compensate"));
     }
 
     @Test

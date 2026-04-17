@@ -13,19 +13,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class StepEngineRollbackTest {
+class StepEngineCompensateTest {
 
     @Test
-    void shouldRollbackCompletedStepsInReverseOrderOnServiceException() {
+    void shouldCompensateCompletedStepsInReverseOrderOnServiceException() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
-                ctx -> ctx.events.add("rollback-step-1"))
+                ctx -> ctx.events.add("compensate-step-1"))
             .step("step-2",
                 ctx -> ctx.events.add("execute-step-2"),
-                ctx -> ctx.events.add("rollback-step-2"))
+                ctx -> ctx.events.add("compensate-step-2"))
             .step("step-3", ctx -> {
                 ctx.events.add("execute-step-3");
                 throw new InvalidRequestException("INVALID", "bad input");
@@ -44,24 +44,24 @@ class StepEngineRollbackTest {
                 "execute-step-1",
                 "execute-step-2",
                 "execute-step-3",
-                "rollback-step-2",
-                "rollback-step-1"
+                "compensate-step-2",
+                "compensate-step-1"
             ),
             context.events
         );
     }
 
     @Test
-    void shouldRollbackCompletedStepsInReverseOrderOnUnexpectedException() {
+    void shouldCompensateCompletedStepsInReverseOrderOnUnexpectedException() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
-                ctx -> ctx.events.add("rollback-step-1"))
+                ctx -> ctx.events.add("compensate-step-1"))
             .step("step-2",
                 ctx -> ctx.events.add("execute-step-2"),
-                ctx -> ctx.events.add("rollback-step-2"))
+                ctx -> ctx.events.add("compensate-step-2"))
             .step("step-3", ctx -> {
                 ctx.events.add("execute-step-3");
                 throw new IOException("downstream failure");
@@ -79,21 +79,21 @@ class StepEngineRollbackTest {
                 "execute-step-1",
                 "execute-step-2",
                 "execute-step-3",
-                "rollback-step-2",
-                "rollback-step-1"
+                "compensate-step-2",
+                "compensate-step-1"
             ),
             context.events
         );
     }
 
     @Test
-    void shouldSkipStepsWithoutRollbackHandler() {
+    void shouldSkipStepsWithoutCompensateHandler() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
-                ctx -> ctx.events.add("rollback-step-1"))
+                ctx -> ctx.events.add("compensate-step-1"))
             .step("step-2", ctx -> ctx.events.add("execute-step-2"))
             .step("step-3", ctx -> {
                 ctx.events.add("execute-step-3");
@@ -108,22 +108,22 @@ class StepEngineRollbackTest {
                 "execute-step-1",
                 "execute-step-2",
                 "execute-step-3",
-                "rollback-step-1"
+                "compensate-step-1"
             ),
             context.events
         );
     }
 
     @Test
-    void shouldAttachRollbackFailureAsSuppressedExceptionToServiceException() {
+    void shouldAttachCompensateFailureAsSuppressedExceptionToServiceException() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
                 ctx -> {
-                    ctx.events.add("rollback-step-1");
-                    throw new IllegalStateException("rollback failed");
+                    ctx.events.add("compensate-step-1");
+                    throw new IllegalStateException("compensate failed");
                 })
             .step("step-2", ctx -> {
                 ctx.events.add("execute-step-2");
@@ -141,15 +141,15 @@ class StepEngineRollbackTest {
     }
 
     @Test
-    void shouldAttachRollbackFailureAsSuppressedExceptionToWorkflowException() {
+    void shouldAttachCompensateFailureAsSuppressedExceptionToWorkflowException() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
                 ctx -> {
-                    ctx.events.add("rollback-step-1");
-                    throw new IllegalStateException("rollback failed");
+                    ctx.events.add("compensate-step-1");
+                    throw new IllegalStateException("compensate failed");
                 })
             .step("step-2", ctx -> {
                 ctx.events.add("execute-step-2");
@@ -165,13 +165,13 @@ class StepEngineRollbackTest {
         assertEquals(1, exception.getSuppressed().length);
         assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0]);
         assertEquals(
-            "rollback failed",
+            "compensate failed",
             exception.getSuppressed()[0].getMessage()
         );
     }
 
     @Test
-    void shouldPreserveOriginalServiceExceptionWhenRollbackFails() {
+    void shouldPreserveOriginalServiceExceptionWhenCompensateFails() {
         TestContext context = new TestContext();
         InvalidRequestException expected = new InvalidRequestException("INVALID", "bad input");
 
@@ -179,8 +179,8 @@ class StepEngineRollbackTest {
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
                 ctx -> {
-                    ctx.events.add("rollback-step-1");
-                    throw new IllegalStateException("rollback failed");
+                    ctx.events.add("compensate-step-1");
+                    throw new IllegalStateException("compensate failed");
                 })
             .step("step-2", ctx -> {
                 ctx.events.add("execute-step-2");
@@ -199,7 +199,7 @@ class StepEngineRollbackTest {
     }
 
     @Test
-    void shouldPreserveOriginalUnexpectedExceptionWhenRollbackFails() {
+    void shouldPreserveOriginalUnexpectedExceptionWhenCompensateFails() {
         TestContext context = new TestContext();
         IOException expected = new IOException("downstream fail");
 
@@ -207,8 +207,8 @@ class StepEngineRollbackTest {
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
                 ctx -> {
-                    ctx.events.add("rollback-step-1");
-                    throw new IllegalStateException("rollback failed");
+                    ctx.events.add("compensate-step-1");
+                    throw new IllegalStateException("compensate failed");
                 })
             .step("step-2", ctx -> {
                 ctx.events.add("execute-step-2");
@@ -227,21 +227,21 @@ class StepEngineRollbackTest {
     }
 
     @Test
-    void shouldRetryRollbackWhenRollbackRetryPolicyIsSet() {
+    void shouldRetryCompensateWhenCompensateRetryPolicyIsSet() {
         TestContext context = new TestContext();
-        AtomicInteger rollbackAttempts = new AtomicInteger(0);
+        AtomicInteger compensateAttempts = new AtomicInteger(0);
 
         Step<TestContext> step1 = Step.<TestContext>builder()
             .name("step-1")
             .execute(ctx -> ctx.events.add("execute-step-1"))
-            .rollback(ctx -> {
-                int attempt = rollbackAttempts.incrementAndGet();
-                ctx.events.add("rollback-step-1-attempt-" + attempt);
+            .compensate(ctx -> {
+                int attempt = compensateAttempts.incrementAndGet();
+                ctx.events.add("compensate-step-1-attempt-" + attempt);
                 if (attempt < 3) {
-                    throw new IOException("rollback transient failure");
+                    throw new IOException("compensate transient failure");
                 }
             })
-            .rollbackRetryPolicy(new ImmediateRetryPolicy(3))
+            .compensateRetryPolicy(new ImmediateRetryPolicy(3))
             .build();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
@@ -258,27 +258,27 @@ class StepEngineRollbackTest {
             List.of(
                 "execute-step-1",
                 "execute-step-2",
-                "rollback-step-1-attempt-1",
-                "rollback-step-1-attempt-2",
-                "rollback-step-1-attempt-3"
+                "compensate-step-1-attempt-1",
+                "compensate-step-1-attempt-2",
+                "compensate-step-1-attempt-3"
             ),
             context.events
         );
-        assertEquals(3, rollbackAttempts.get());
+        assertEquals(3, compensateAttempts.get());
     }
 
     @Test
-    void shouldNotRetryRollbackWhenNoRollbackRetryPolicyIsSet() {
+    void shouldNotRetryCompensateWhenNoCompensateRetryPolicyIsSet() {
         TestContext context = new TestContext();
-        AtomicInteger rollbackAttempts = new AtomicInteger(0);
+        AtomicInteger compensateAttempts = new AtomicInteger(0);
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step("step-1",
                 ctx -> ctx.events.add("execute-step-1"),
                 ctx -> {
-                    rollbackAttempts.incrementAndGet();
-                    ctx.events.add("rollback-step-1");
-                    throw new IOException("rollback failure");
+                    compensateAttempts.incrementAndGet();
+                    ctx.events.add("compensate-step-1");
+                    throw new IOException("compensate failure");
                 })
             .step("step-2", ctx -> {
                 ctx.events.add("execute-step-2");
@@ -288,23 +288,23 @@ class StepEngineRollbackTest {
 
         IOException exception = assertThrows(IOException.class, () -> engine.execute(context));
 
-        assertEquals(1, rollbackAttempts.get());
+        assertEquals(1, compensateAttempts.get());
         assertEquals(1, exception.getSuppressed().length);
     }
 
     @Test
-    void shouldSuppressRollbackExceptionAfterRetriesExhausted() {
+    void shouldSuppressCompensateExceptionAfterRetriesExhausted() {
         TestContext context = new TestContext();
-        AtomicInteger rollbackAttempts = new AtomicInteger(0);
+        AtomicInteger compensateAttempts = new AtomicInteger(0);
 
         Step<TestContext> step1 = Step.<TestContext>builder()
             .name("step-1")
             .execute(ctx -> ctx.events.add("execute-step-1"))
-            .rollback(ctx -> {
-                rollbackAttempts.incrementAndGet();
-                throw new IOException("rollback always fails");
+            .compensate(ctx -> {
+                compensateAttempts.incrementAndGet();
+                throw new IOException("compensate always fails");
             })
-            .rollbackRetryPolicy(new ImmediateRetryPolicy(2))
+            .compensateRetryPolicy(new ImmediateRetryPolicy(2))
             .build();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
@@ -317,29 +317,29 @@ class StepEngineRollbackTest {
 
         IOException exception = assertThrows(IOException.class, () -> engine.execute(context));
 
-        assertEquals(2, rollbackAttempts.get());
+        assertEquals(2, compensateAttempts.get());
         assertEquals(1, exception.getSuppressed().length);
-        assertEquals("rollback always fails", exception.getSuppressed()[0].getMessage());
+        assertEquals("compensate always fails", exception.getSuppressed()[0].getMessage());
     }
 
     @Test
-    void shouldRetryRollbackIndependentlyFromForwardRetryPolicy() {
+    void shouldRetryCompensateIndependentlyFromForwardRetryPolicy() {
         TestContext context = new TestContext();
         AtomicInteger forwardAttempts = new AtomicInteger(0);
-        AtomicInteger rollbackAttempts = new AtomicInteger(0);
+        AtomicInteger compensateAttempts = new AtomicInteger(0);
 
         Step<TestContext> step1 = Step.<TestContext>builder()
             .name("step-1")
             .execute(ctx -> ctx.events.add("execute-step-1"))
-            .rollback(ctx -> {
-                int attempt = rollbackAttempts.incrementAndGet();
+            .compensate(ctx -> {
+                int attempt = compensateAttempts.incrementAndGet();
                 if (attempt < 2) {
-                    throw new IOException("rollback transient failure");
+                    throw new IOException("compensate transient failure");
                 }
-                ctx.events.add("rollback-step-1");
+                ctx.events.add("compensate-step-1");
             })
             .retryPolicy(new ImmediateRetryPolicy(5))
-            .rollbackRetryPolicy(new ImmediateRetryPolicy(2))
+            .compensateRetryPolicy(new ImmediateRetryPolicy(2))
             .build();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
@@ -352,8 +352,8 @@ class StepEngineRollbackTest {
 
         assertThrows(IOException.class, () -> engine.execute(context));
 
-        assertEquals(2, rollbackAttempts.get());
-        assertTrue(context.events.contains("rollback-step-1"));
+        assertEquals(2, compensateAttempts.get());
+        assertTrue(context.events.contains("compensate-step-1"));
     }
 
     private static final class TestContext {

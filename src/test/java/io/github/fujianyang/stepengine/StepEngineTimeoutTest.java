@@ -120,14 +120,14 @@ class StepEngineTimeoutTest {
     }
 
     @Test
-    void shouldRollbackAfterTimeout() {
+    void shouldCompensateAfterTimeout() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("step-1")
                 .execute(ctx -> ctx.events.add("step-1-forward"))
-                .rollback(ctx -> ctx.events.add("step-1-rollback"))
+                .compensate(ctx -> ctx.events.add("step-1-compensate"))
                 .build())
             .step(Step.<TestContext>builder()
                 .name("slow-step")
@@ -139,24 +139,24 @@ class StepEngineTimeoutTest {
         assertThrows(StepTimeoutException.class, () -> engine.execute(context));
 
         assertTrue(context.events.contains("step-1-forward"));
-        assertTrue(context.events.contains("step-1-rollback"));
+        assertTrue(context.events.contains("step-1-compensate"));
     }
 
     @Test
-    void shouldTimeoutOnSlowRollback() {
+    void shouldTimeoutOnSlowCompensate() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("step-1")
                 .execute(ctx -> ctx.events.add("step-1-forward"))
-                .rollback(ctx -> {
-                    Thread.sleep(5000); // slow rollback
+                .compensate(ctx -> {
+                    Thread.sleep(5000); // slow compensate
                 })
                 .timeout(Duration.ofMillis(100))
                 .build())
             .step("step-2", ctx -> {
-                throw new IOException("trigger-rollback");
+                throw new IOException("trigger-compensate");
             })
             .build();
 
@@ -165,7 +165,7 @@ class StepEngineTimeoutTest {
             () -> engine.execute(context)
         );
 
-        // Rollback timeout should be attached as suppressed
+        // Compensate timeout should be attached as suppressed
         assertTrue(context.events.contains("step-1-forward"));
         Throwable[] suppressed = exception.getSuppressed();
         assertEquals(1, suppressed.length);
@@ -182,7 +182,7 @@ class StepEngineTimeoutTest {
                     .step(Step.<TestContext>builder()
                         .name("fast")
                         .execute(ctx -> ctx.events.add("fast-done"))
-                        .rollback(ctx -> ctx.events.add("fast-rollback"))
+                        .compensate(ctx -> ctx.events.add("fast-compensate"))
                         .build())
                     .step(Step.<TestContext>builder()
                         .name("slow")
@@ -200,7 +200,7 @@ class StepEngineTimeoutTest {
 
         assertEquals("slow", exception.getStepName());
         assertTrue(context.events.contains("fast-done"));
-        assertTrue(context.events.contains("fast-rollback"));
+        assertTrue(context.events.contains("fast-compensate"));
     }
 
     @Test
