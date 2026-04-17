@@ -180,7 +180,7 @@ class StepEngineParallelTest {
                     }))
                     .step(Step.<TestContext>builder()
                         .name("b")
-                        .execute(ctx -> {
+                        .forward(ctx -> {
                             bAttempts.incrementAndGet();
                             throw new IOException("transient");
                         })

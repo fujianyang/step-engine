@@ -24,7 +24,7 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("slow-step")
-                .execute(ctx -> {
+                .forward(ctx -> {
                     Thread.sleep(5000);
                     ctx.events.add("should-not-reach");
                 })
@@ -49,7 +49,7 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("fast-step")
-                .execute(ctx -> ctx.events.add("done"))
+                .forward(ctx -> ctx.events.add("done"))
                 .timeout(Duration.ofSeconds(5))
                 .build())
             .build();
@@ -67,7 +67,7 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("eventually-fast")
-                .execute(ctx -> {
+                .forward(ctx -> {
                     int attempt = attempts.incrementAndGet();
                     if (attempt < 3) {
                         Thread.sleep(5000); // will timeout
@@ -99,7 +99,7 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("always-slow")
-                .execute(ctx -> {
+                .forward(ctx -> {
                     attempts.incrementAndGet();
                     Thread.sleep(5000);
                 })
@@ -126,12 +126,12 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("step-1")
-                .execute(ctx -> ctx.events.add("step-1-forward"))
+                .forward(ctx -> ctx.events.add("step-1-forward"))
                 .compensate(ctx -> ctx.events.add("step-1-compensate"))
                 .build())
             .step(Step.<TestContext>builder()
                 .name("slow-step")
-                .execute(ctx -> Thread.sleep(5000))
+                .forward(ctx -> Thread.sleep(5000))
                 .timeout(Duration.ofMillis(100))
                 .build())
             .build();
@@ -149,7 +149,7 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("step-1")
-                .execute(ctx -> ctx.events.add("step-1-forward"))
+                .forward(ctx -> ctx.events.add("step-1-forward"))
                 .compensate(ctx -> {
                     Thread.sleep(5000); // slow compensate
                 })
@@ -181,12 +181,12 @@ class StepEngineTimeoutTest {
                 ParallelGroup.<TestContext>builder()
                     .step(Step.<TestContext>builder()
                         .name("fast")
-                        .execute(ctx -> ctx.events.add("fast-done"))
+                        .forward(ctx -> ctx.events.add("fast-done"))
                         .compensate(ctx -> ctx.events.add("fast-compensate"))
                         .build())
                     .step(Step.<TestContext>builder()
                         .name("slow")
-                        .execute(ctx -> Thread.sleep(5000))
+                        .forward(ctx -> Thread.sleep(5000))
                         .timeout(Duration.ofMillis(100))
                         .build())
                     .build()
@@ -210,7 +210,7 @@ class StepEngineTimeoutTest {
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
             .step(Step.<TestContext>builder()
                 .name("no-timeout")
-                .execute(ctx -> ctx.events.add("done"))
+                .forward(ctx -> ctx.events.add("done"))
                 .build())
             .build();
 
@@ -225,7 +225,7 @@ class StepEngineTimeoutTest {
             IllegalArgumentException.class,
             () -> Step.<TestContext>builder()
                 .name("bad")
-                .execute(ctx -> {})
+                .forward(ctx -> {})
                 .timeout(Duration.ZERO)
                 .build()
         );
@@ -237,7 +237,7 @@ class StepEngineTimeoutTest {
             IllegalArgumentException.class,
             () -> Step.<TestContext>builder()
                 .name("bad")
-                .execute(ctx -> {})
+                .forward(ctx -> {})
                 .timeout(Duration.ofMillis(-1))
                 .build()
         );

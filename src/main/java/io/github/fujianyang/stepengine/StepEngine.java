@@ -37,8 +37,10 @@ public final class StepEngine<C> {
 
     private final List<ExecutionUnit<C>> units;
     private final RetryPolicy retryPolicy;
+    private final CompensateOnError compensateOnError;
 
-    private StepEngine(List<ExecutionUnit<C>> units, RetryPolicy retryPolicy) {
+    private StepEngine(List<ExecutionUnit<C>> units, RetryPolicy retryPolicy,
+                       CompensateOnError compensateOnError) {
         Objects.requireNonNull(units, "units must not be null");
         if (units.isEmpty()) {
             throw new IllegalArgumentException("steps must not be empty");
@@ -46,6 +48,7 @@ public final class StepEngine<C> {
 
         this.units = List.copyOf(units);
         this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy must not be null");
+        this.compensateOnError = Objects.requireNonNull(compensateOnError, "compensateOnError must not be null");
 
         validateUniqueStepNames(this.units);
     }
@@ -215,7 +218,15 @@ public final class StepEngine<C> {
             ExecutionUnit<C> unit = completedUnits.pop();
             switch (unit) {
                 case ExecutionUnit.Sequential<C> seq -> {
-                    compensateStep(seq.step(), context, originalFailure);
+                    try {
+                        compensateStep(seq.step(), context);
+                    } catch (Exception compensateException) {
+                        log.error("Step '{}' compensating Exception: {}", seq.step().name(), compensateException.getMessage());
+                        originalFailure.addSuppressed(compensateException);
+                        if (compensateOnError == CompensateOnError.STOP) {
+                            return;
+                        }
+                    }
                 }
                 case ExecutionUnit.Parallel<C> par -> {
                     compensateStepsInParallel(par.group().steps(), context, originalFailure, par.group());
@@ -224,20 +235,15 @@ public final class StepEngine<C> {
         }
     }
 
-    private void compensateStep(Step<C> step, C context, Throwable originalFailure) {
+    private void compensateStep(Step<C> step, C context) throws Exception {
         if (!step.supportsCompensate()) {
             return;
         }
 
         CompensateHandler<C> compensateHandler = step.compensateHandler().orElseThrow();
-        try {
-            log.warn("Step '{}' compensating", step.name());
-            executeCompensateWithRetry(step, compensateHandler, context);
-            log.warn("Step '{}' compensating ... done", step.name());
-        } catch (Exception compensateException) {
-            log.error("Step '{}' compensating Exception: {}", step.name(), compensateException.getMessage());
-            originalFailure.addSuppressed(compensateException);
-        }
+        log.warn("Step '{}' compensating", step.name());
+        executeCompensateWithRetry(step, compensateHandler, context);
+        log.warn("Step '{}' compensating ... done", step.name());
     }
 
     private void compensateStepsInParallel(List<Step<C>> steps,
@@ -385,6 +391,7 @@ public final class StepEngine<C> {
 
         private final List<ExecutionUnit<C>> units = new ArrayList<>();
         private RetryPolicy retryPolicy = new NoRetryPolicy();
+        private CompensateOnError compensateOnError = CompensateOnError.STOP;
 
         private Builder() {
         }
@@ -418,8 +425,25 @@ public final class StepEngine<C> {
             return this;
         }
 
+        /**
+         * Controls behavior when a sequential step's compensation fails.
+         *
+         * <p>{@link CompensateOnError#STOP} (default) stops the compensation chain on the first
+         * failure. {@link CompensateOnError#CONTINUE} continues compensating remaining steps
+         * despite failures.
+         *
+         * <p>This setting only affects sequential steps. Within a parallel group, all steps are
+         * always compensated regardless of individual failures.
+         *
+         * @param compensateOnError the error handling strategy for compensation
+         */
+        public Builder<C> compensateOnError(CompensateOnError compensateOnError) {
+            this.compensateOnError = Objects.requireNonNull(compensateOnError, "compensateOnError must not be null");
+            return this;
+        }
+
         public StepEngine<C> build() {
-            return new StepEngine<>(units, retryPolicy);
+            return new StepEngine<>(units, retryPolicy, compensateOnError);
         }
     }
 }

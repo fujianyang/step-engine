@@ -173,7 +173,7 @@ A per-step timeout bounds how long each `forward()` or `compensate()` invocation
 ```java
 Step.<MyContext>builder()
     .name("call-downstream")
-    .execute(ctx -> ctx.setResult(callService(ctx.request())))
+    .forward(ctx -> ctx.setResult(callService(ctx.request())))
     .timeout(Duration.ofSeconds(5))
     .build()
 ```
@@ -222,7 +222,7 @@ By default, parallel steps run on Java 21 virtual threads. A custom `Executor` c
 ParallelGroup.<MyContext>builder()
     .step(Step.<MyContext>builder()
         .name("rate-limited-call")
-        .execute(ctx -> { ... })
+        .forward(ctx -> { ... })
         .executor(rateLimitedExecutor)
         .build())
     .step(Step.of("fast-call", ctx -> { ... }))
@@ -259,9 +259,24 @@ Compensate: Step2 → Step1
 ```
 
 Compensation behavior:
-- best-effort
-- compensation failures are attached as suppressed exceptions
+- compensation failures are attached as suppressed exceptions on the original failure
+- for sequential steps, compensation **stops** on the first failure by default — remaining steps are not compensated
+- for parallel groups, all steps in the group are compensated regardless of individual failures
 - original failure is preserved
+
+Use `compensateOnError` to control the sequential compensation behavior:
+
+```java
+StepEngine.<MyContext>builder()
+    .step(...)
+    .compensateOnError(CompensateOnError.CONTINUE) // compensate all steps even if one fails
+    .build();
+```
+
+| Value | Behavior |
+|-------|----------|
+| `STOP` (default) | Stop compensation on first failure |
+| `CONTINUE` | Continue compensating remaining steps despite failures |
 
 ---
 

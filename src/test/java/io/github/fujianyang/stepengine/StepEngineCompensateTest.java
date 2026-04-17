@@ -233,7 +233,7 @@ class StepEngineCompensateTest {
 
         Step<TestContext> step1 = Step.<TestContext>builder()
             .name("step-1")
-            .execute(ctx -> ctx.events.add("execute-step-1"))
+            .forward(ctx -> ctx.events.add("execute-step-1"))
             .compensate(ctx -> {
                 int attempt = compensateAttempts.incrementAndGet();
                 ctx.events.add("compensate-step-1-attempt-" + attempt);
@@ -299,7 +299,7 @@ class StepEngineCompensateTest {
 
         Step<TestContext> step1 = Step.<TestContext>builder()
             .name("step-1")
-            .execute(ctx -> ctx.events.add("execute-step-1"))
+            .forward(ctx -> ctx.events.add("execute-step-1"))
             .compensate(ctx -> {
                 compensateAttempts.incrementAndGet();
                 throw new IOException("compensate always fails");
@@ -330,7 +330,7 @@ class StepEngineCompensateTest {
 
         Step<TestContext> step1 = Step.<TestContext>builder()
             .name("step-1")
-            .execute(ctx -> ctx.events.add("execute-step-1"))
+            .forward(ctx -> ctx.events.add("execute-step-1"))
             .compensate(ctx -> {
                 int attempt = compensateAttempts.incrementAndGet();
                 if (attempt < 2) {
@@ -354,6 +354,79 @@ class StepEngineCompensateTest {
 
         assertEquals(2, compensateAttempts.get());
         assertTrue(context.events.contains("compensate-step-1"));
+    }
+
+    @Test
+    void shouldContinueCompensationWhenConfiguredAsContinue() {
+        TestContext context = new TestContext();
+
+        StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
+            .step("step-1",
+                ctx -> ctx.events.add("execute-step-1"),
+                ctx -> ctx.events.add("compensate-step-1"))
+            .step("step-2",
+                ctx -> ctx.events.add("execute-step-2"),
+                ctx -> {
+                    ctx.events.add("compensate-step-2");
+                    throw new IllegalStateException("compensate-step-2 failed");
+                })
+            .step("step-3", ctx -> {
+                ctx.events.add("execute-step-3");
+                throw new IOException("step-3 failure");
+            })
+            .compensateOnError(CompensateOnError.CONTINUE)
+            .build();
+
+        IOException exception = assertThrows(IOException.class, () -> engine.execute(context));
+
+        assertEquals(
+            List.of(
+                "execute-step-1",
+                "execute-step-2",
+                "execute-step-3",
+                "compensate-step-2",
+                "compensate-step-1"
+            ),
+            context.events
+        );
+        assertEquals(1, exception.getSuppressed().length);
+        assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0]);
+    }
+
+    @Test
+    void shouldStopCompensationOnFailureForSequentialSteps() {
+        TestContext context = new TestContext();
+
+        StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
+            .step("step-1",
+                ctx -> ctx.events.add("execute-step-1"),
+                ctx -> ctx.events.add("compensate-step-1"))
+            .step("step-2",
+                ctx -> ctx.events.add("execute-step-2"),
+                ctx -> {
+                    ctx.events.add("compensate-step-2");
+                    throw new IllegalStateException("compensate-step-2 failed");
+                })
+            .step("step-3", ctx -> {
+                ctx.events.add("execute-step-3");
+                throw new IOException("step-3 failure");
+            })
+            .build();
+
+        IOException exception = assertThrows(IOException.class, () -> engine.execute(context));
+
+        // step-2 compensation fails, so step-1 compensation is never attempted
+        assertEquals(
+            List.of(
+                "execute-step-1",
+                "execute-step-2",
+                "execute-step-3",
+                "compensate-step-2"
+            ),
+            context.events
+        );
+        assertEquals(1, exception.getSuppressed().length);
+        assertInstanceOf(IllegalStateException.class, exception.getSuppressed()[0]);
     }
 
     private static final class TestContext {

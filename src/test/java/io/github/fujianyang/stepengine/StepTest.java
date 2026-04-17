@@ -40,7 +40,7 @@ class StepTest {
     void shouldCreateStepUsingBuilder() {
         Step<TestContext> step = Step.<TestContext>builder()
             .name("create-order")
-            .execute(context -> context.value = "created")
+            .forward(context -> context.value = "created")
             .compensate(context -> context.value = "compensated")
             .build();
 
@@ -118,7 +118,7 @@ class StepTest {
             .step(
                 Step.<TestContext>builder()
                     .name("unstable-step")
-                    .execute(ctx -> {
+                    .forward(ctx -> {
                         attempts.incrementAndGet();
                         throw new IOException("fail");
                     })
@@ -177,7 +177,7 @@ class StepTest {
             .step(
                 Step.<TestContext>builder()
                     .name("unstable-step")
-                    .execute(ctx -> {
+                    .forward(ctx -> {
                         attempts.incrementAndGet();
                         throw new IOException("fail");
                     })

@@ -110,7 +110,7 @@ public final class Step<C> {
             return this;
         }
 
-        public Builder<C> execute(StepHandler<C> handler) {
+        public Builder<C> forward(StepHandler<C> handler) {
             this.handler = handler;
             return this;
         }

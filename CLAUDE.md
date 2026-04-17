@@ -31,7 +31,7 @@ StepEngine is a small library with no external runtime dependencies (SLF4J only)
 On failure:
 1. If the exception is a `ServiceException` (or subclass), it is rethrown immediately — no retry.
 2. Otherwise the active `RetryPolicy` is consulted (`shouldRetry` + `backoffDelay`). When retries are exhausted, the exception propagates.
-3. In either case, already-completed steps are compensated in reverse order (best-effort). Compensation failures are attached as suppressed exceptions on the original failure.
+3. In either case, already-completed steps are compensated in reverse order. Compensation failures are attached as suppressed exceptions on the original failure. For sequential steps, compensation stops on the first failure by default (`CompensateOnError.STOP`); set `CompensateOnError.CONTINUE` to compensate all remaining steps despite failures. For parallel groups, all steps in the group are always compensated regardless of individual failures.
 
 ### Key types
 
@@ -46,6 +46,7 @@ On failure:
 | `RetryPolicy` | Interface: `shouldRetry(Throwable, attemptNumber)` + `backoffDelay(attemptNumber)` |
 | `ExponentialBackoffRetryPolicy` | Built-in policy with jitter; defaults: maxAttempts=3, initialDelay=100ms, maxDelay=5s |
 | `NoRetryPolicy` | Default when no policy is set; never retries |
+| `CompensateOnError` | Enum (`STOP`, `CONTINUE`): controls whether sequential compensation stops on first failure or continues |
 
 ### Per-step retry override
 
