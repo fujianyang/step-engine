@@ -15,27 +15,30 @@ public final class Step<C> {
     private final StepHandler<C> handler;
     private final RollbackHandler<C> rollbackHandler;
     private final RetryPolicy retryPolicy;
+    private final RetryPolicy rollbackRetryPolicy;
     private final Executor executor;
     private final Duration timeout;
 
     private Step(String name, StepHandler<C> handler, RollbackHandler<C> rollbackHandler,
-                 RetryPolicy retryPolicy, Executor executor, Duration timeout) {
+                 RetryPolicy retryPolicy, RetryPolicy rollbackRetryPolicy,
+                 Executor executor, Duration timeout) {
         this.name = requireName(name);
         this.handler = Objects.requireNonNull(handler, "handler must not be null");
         this.rollbackHandler = rollbackHandler;
         this.retryPolicy = retryPolicy;
+        this.rollbackRetryPolicy = rollbackRetryPolicy;
         this.executor = executor;
         this.timeout = validateTimeout(timeout);
     }
 
     public static <C> Step<C> of(String name, StepHandler<C> handler) {
-        return new Step<>(name, handler, null, null, null, null);
+        return new Step<>(name, handler, null, null, null, null, null);
     }
 
     public static <C> Step<C> of(String name,
                                  StepHandler<C> handler,
                                  RollbackHandler<C> rollbackHandler) {
-        return new Step<>(name, handler, rollbackHandler, null, null, null);
+        return new Step<>(name, handler, rollbackHandler, null, null, null, null);
     }
 
     public static <C> Builder<C> builder() {
@@ -60,6 +63,10 @@ public final class Step<C> {
 
     public Optional<RetryPolicy> retryPolicy() {
         return Optional.ofNullable(retryPolicy);
+    }
+
+    public Optional<RetryPolicy> rollbackRetryPolicy() {
+        return Optional.ofNullable(rollbackRetryPolicy);
     }
 
     public Optional<Executor> executor() {
@@ -91,6 +98,7 @@ public final class Step<C> {
         private StepHandler<C> handler;
         private RollbackHandler<C> rollbackHandler;
         private RetryPolicy retryPolicy;
+        private RetryPolicy rollbackRetryPolicy;
         private Executor executor;
         private Duration timeout;
 
@@ -117,6 +125,11 @@ public final class Step<C> {
             return this;
         }
 
+        public Builder<C> rollbackRetryPolicy(RetryPolicy rollbackRetryPolicy) {
+            this.rollbackRetryPolicy = rollbackRetryPolicy;
+            return this;
+        }
+
         public Builder<C> executor(Executor executor) {
             this.executor = executor;
             return this;
@@ -131,7 +144,7 @@ public final class Step<C> {
             if (handler == null) {
                 throw new IllegalStateException("step handler must be provided");
             }
-            return new Step<>(name, handler, rollbackHandler, retryPolicy, executor, timeout);
+            return new Step<>(name, handler, rollbackHandler, retryPolicy, rollbackRetryPolicy, executor, timeout);
         }
     }
 }

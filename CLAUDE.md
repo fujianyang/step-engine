@@ -51,6 +51,10 @@ On failure:
 
 A `Step` can carry its own `RetryPolicy` (set via `Step.builder().retryPolicy(...)`). `StepEngine` uses the step-level policy if present, otherwise falls back to the engine-level policy.
 
+### Rollback retry
+
+By default, rollback is not retried (best-effort, single attempt). A `Step` can opt in to rollback retries via `Step.builder().rollbackRetryPolicy(...)`. This is independent of the forward `retryPolicy` — they are separate concerns. When not set, rollback behaves as before (no retry, failure attached as suppressed exception).
+
 ### Step timeout
 
 `Step` has an optional `Duration timeout` that bounds each `forward()` and `rollback()` invocation independently. Implemented via `Future.cancel(true)` on a virtual thread — cooperative interruption, not a hard kill. `StepTimeoutException` (extends `RuntimeException`, not `ServiceException`) is thrown on timeout and is retryable by default.

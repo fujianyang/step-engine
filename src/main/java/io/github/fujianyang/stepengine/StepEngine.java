@@ -177,6 +177,37 @@ public final class StepEngine<C> {
         }
     }
 
+    private void executeRollbackWithRetry(Step<C> step, RollbackHandler<C> rollbackHandler,
+                                           C context) throws Exception {
+        RetryPolicy rollbackPolicy = step.rollbackRetryPolicy().orElse(null);
+
+        if (rollbackPolicy == null) {
+            invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
+            return;
+        }
+
+        int attemptNumber = 1;
+        while (true) {
+            try {
+                invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
+                return;
+            } catch (Exception exception) {
+                log.warn("Step '{}' rollback Exception: {}", step.name(), exception.getMessage());
+
+                if (!rollbackPolicy.shouldRetry(exception, attemptNumber)) {
+                    throw exception;
+                }
+
+                log.info("Step '{}' rollback retry, attempt={}", step.name(), attemptNumber);
+
+                Duration delay = rollbackPolicy.backoffDelay(attemptNumber);
+                sleep(delay, step.name(), attemptNumber, exception);
+
+                attemptNumber++;
+            }
+        }
+    }
+
     private void rollbackCompletedUnits(Deque<ExecutionUnit<C>> completedUnits,
                                         C context,
                                         Throwable originalFailure) {
@@ -201,7 +232,7 @@ public final class StepEngine<C> {
         RollbackHandler<C> rollbackHandler = step.rollbackHandler().orElseThrow();
         try {
             log.warn("Step '{}' rolling back", step.name());
-            invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
+            executeRollbackWithRetry(step, rollbackHandler, context);
             log.warn("Step '{}' rolling back ... done", step.name());
         } catch (Exception rollbackException) {
             log.error("Step '{}' rolling back Exception: {}", step.name(), rollbackException.getMessage());
@@ -231,7 +262,7 @@ public final class StepEngine<C> {
                         RollbackHandler<C> rollbackHandler = step.rollbackHandler().orElseThrow();
                         try {
                             log.warn("Step '{}' rolling back (parallel)", step.name());
-                            invokeWithTimeout(() -> rollbackHandler.rollback(context), step);
+                            executeRollbackWithRetry(step, rollbackHandler, context);
                             log.warn("Step '{}' rolling back ... done (parallel)", step.name());
                         } catch (Exception rollbackException) {
                             log.error("Step '{}' rolling back Exception: {}", step.name(), rollbackException.getMessage());
