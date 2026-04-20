@@ -37,7 +37,7 @@ class StepEngineExecutionTest {
     }
 
     @Test
-    void shouldWrapUnexpectedExceptionInWorkflowException() {
+    void shouldPropagateUnexpectedExceptionAsIs() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
@@ -187,7 +187,7 @@ class StepEngineExecutionTest {
     }
 
     @Test
-    void shouldPreserveOriginalUnexpectedExceptionAsCause() {
+    void shouldPreserveOriginalUnexpectedExceptionAsIs() {
         TestContext context = new TestContext();
         IOException expected = new IOException("boom");
 
@@ -197,10 +197,12 @@ class StepEngineExecutionTest {
             })
             .build();
 
-        assertThrows(
+        IOException actual = assertThrows(
             IOException.class,
             () -> engine.execute(context)
         );
+
+        assertSame(expected, actual);
     }
 
     private static final class TestContext {

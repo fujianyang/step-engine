@@ -141,7 +141,7 @@ class StepEngineCompensateTest {
     }
 
     @Test
-    void shouldAttachCompensateFailureAsSuppressedExceptionToWorkflowException() {
+    void shouldAttachCompensateFailureAsSuppressedExceptionToOriginalException() {
         TestContext context = new TestContext();
 
         StepEngine<TestContext> engine = StepEngine.<TestContext>builder()
