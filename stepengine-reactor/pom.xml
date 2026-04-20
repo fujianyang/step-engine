@@ -20,8 +20,8 @@
     <dependencies>
         <dependency>
             <groupId>io.github.fujianyang</groupId>
-            <artifactId>stepengine</artifactId>
-            <version>${version.stepengine}</version>
+            <artifactId>stepengine-core</artifactId>
+            <version>${version.stepengine-core}</version>
         </dependency>
 
         <dependency>

@@ -13,6 +13,7 @@
     <description>Parent build for StepEngine modules</description>
 
     <modules>
+        <module>stepengine-core</module>
         <module>stepengine</module>
         <module>stepengine-reactor</module>
     </modules>
@@ -26,7 +27,7 @@
         <version.maven-surefire-plugin>3.5.4</version.maven-surefire-plugin>
 
         <!-- Runtime -->
-        <version.stepengine>${project.version}</version.stepengine>
+        <version.stepengine-core>${project.version}</version.stepengine-core>
         <version.slf4j-api>2.0.17</version.slf4j-api>
         <version.reactor-core>3.7.7</version.reactor-core>
 

@@ -11,33 +11,16 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>stepengine</artifactId>
+    <artifactId>stepengine-core</artifactId>
     <packaging>jar</packaging>
 
-    <name>stepengine</name>
-    <description>Lightweight workflow engine for short-running idempotent workflows</description>
+    <name>stepengine-core</name>
+    <description>Shared contracts and retry primitives for StepEngine modules</description>
 
     <dependencies>
         <dependency>
-            <groupId>io.github.fujianyang</groupId>
-            <artifactId>stepengine-core</artifactId>
-            <version>${version.stepengine-core}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -5,6 +5,7 @@ StepEngine is a lightweight workflow engine for short-running, idempotent workfl
 It provides a simple and explicit way to orchestrate multi-step operations with retry and compensation support — without introducing external infrastructure or workflow persistence.
 
 This repository now publishes two artifacts:
+- `stepengine-core` for shared contracts and retry primitives
 - `stepengine` for imperative workflows
 - `stepengine-reactor` for Reactor / WebFlux workflows
 
@@ -36,6 +37,18 @@ This repository now publishes two artifacts:
 </dependency>
 ```
 
+### Shared Core
+
+```xml
+<dependency>
+    <groupId>io.github.fujianyang</groupId>
+    <artifactId>stepengine-core</artifactId>
+    <version>${stepengine.version}</version>
+</dependency>
+```
+
+Most application code should depend on `stepengine` or `stepengine-reactor`. `stepengine-core` exists so multiple engine implementations can share the same retry, timeout, and failure contracts cleanly.
+
 ### Reactor API
 
 ```xml
@@ -46,7 +59,7 @@ This repository now publishes two artifacts:
 </dependency>
 ```
 
-`stepengine-reactor` depends transitively on `stepengine`, so Reactor users only need the reactive artifact.
+`stepengine` and `stepengine-reactor` both depend transitively on `stepengine-core`. Reactor users only need the reactive artifact.
 
 ---
 
