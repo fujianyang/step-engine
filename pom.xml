@@ -5,12 +5,17 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.fujianyang</groupId>
-    <artifactId>stepengine</artifactId>
+    <artifactId>stepengine-parent</artifactId>
     <version>0.6.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
-    <name>stepengine</name>
-    <description>Lightweight workflow engine for short-running idempotent workflows</description>
+    <name>stepengine-parent</name>
+    <description>Parent build for StepEngine modules</description>
+
+    <modules>
+        <module>stepengine</module>
+        <module>stepengine-reactor</module>
+    </modules>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
@@ -20,52 +25,67 @@
         <version.maven-compiler-plugin>3.15.0</version.maven-compiler-plugin>
         <version.maven-surefire-plugin>3.5.4</version.maven-surefire-plugin>
 
-        <!-- Logging -->
+        <!-- Runtime -->
+        <version.stepengine>${project.version}</version.stepengine>
         <version.slf4j-api>2.0.17</version.slf4j-api>
+        <version.reactor-core>3.7.7</version.reactor-core>
 
         <!-- Testing -->
-        <version.junit.jupiter>5.12.2</version.junit.jupiter>
+        <version.junit-jupiter>5.12.2</version.junit-jupiter>
         <version.logback-classic>1.5.32</version.logback-classic>
-
+        <version.reactor-test>3.7.7</version.reactor-test>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>${version.slf4j-api}</version>
-        </dependency>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${version.slf4j-api}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${version.junit.jupiter}</version>
-            <scope>test</scope>
-        </dependency>
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-core</artifactId>
+                <version>${version.reactor-core}</version>
+            </dependency>
 
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>${version.logback-classic}</version>
-            <scope>test</scope>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${version.junit-jupiter}</version>
+            </dependency>
 
-        </dependency>
-    </dependencies>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${version.logback-classic}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-test</artifactId>
+                <version>${version.reactor-test}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
-        <plugins>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>${version.maven-compiler-plugin}</version>
-                <configuration>
-                    <release>${maven.compiler.release}</release>
-                </configuration>
-            </plugin>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${version.maven-compiler-plugin}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                    </configuration>
+                </plugin>
 
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>${version.maven-surefire-plugin}</version>
-            </plugin>
-        </plugins>
+                <plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${version.maven-surefire-plugin}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 </project>

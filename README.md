@@ -4,18 +4,49 @@ StepEngine is a lightweight workflow engine for short-running, idempotent workfl
 
 It provides a simple and explicit way to orchestrate multi-step operations with retry and compensation support — without introducing external infrastructure or workflow persistence.
 
+This repository now publishes two artifacts:
+- `stepengine` for imperative workflows
+- `stepengine-reactor` for Reactor / WebFlux workflows
+
 ---
 
 ## ✨ Features
 
+- Imperative and Reactor-native APIs
 - Sequential and parallel step execution
 - Exception-driven failure model
 - Optional compensation support
 - Optional per-step timeout
 - Pluggable retry policies (e.g. exponential backoff with jitter)
-- Optional per-step retry policy and executor override
+- Optional per-step retry policy and execution override
 - Parallel execution via virtual threads (Java 21), with optional custom executor
 - Minimal dependency footprint (SLF4J only)
+
+---
+
+## 📦 Artifacts
+
+### Imperative API
+
+```xml
+<dependency>
+    <groupId>io.github.fujianyang</groupId>
+    <artifactId>stepengine</artifactId>
+    <version>${stepengine.version}</version>
+</dependency>
+```
+
+### Reactor API
+
+```xml
+<dependency>
+    <groupId>io.github.fujianyang</groupId>
+    <artifactId>stepengine-reactor</artifactId>
+    <version>${stepengine.version}</version>
+</dependency>
+```
+
+`stepengine-reactor` depends transitively on `stepengine`, so Reactor users only need the reactive artifact.
 
 ---
 
@@ -49,7 +80,7 @@ If you need durable execution and workflow state persistence, consider platforms
 
 ### Step
 
-A `Step` represents a unit of work in a workflow.
+In the imperative API, a `Step` represents a unit of work in a workflow.
 
 Each step defines:
 - a name
@@ -87,7 +118,7 @@ Typically, the context contains:
 
 ### StepEngine
 
-A `StepEngine` executes an ordered list of steps.
+In the imperative API, a `StepEngine` executes an ordered list of steps.
 
 ```java
 StepEngine<MyContext> engine = StepEngine.<MyContext>builder()
@@ -104,6 +135,54 @@ StepEngine<MyContext> engine = StepEngine.<MyContext>builder()
 
 engine.execute(context);
 ```
+
+---
+
+### ReactiveStepEngine
+
+For Reactor / WebFlux applications, `ReactiveStepEngine` preserves the same execution model and failure semantics, but step handlers return `Mono<Void>`.
+
+```java
+ReactiveStepEngine<MyContext> engine = ReactiveStepEngine.<MyContext>builder()
+    .step("validate", ctx -> {
+        if (ctx.request() == null) {
+            return Mono.error(new IllegalArgumentException("request must not be null"));
+        }
+        return Mono.empty();
+    })
+    .step(
+        ReactiveStep.<MyContext>builder()
+            .name("create-order")
+            .forward(ctx -> webClient.post()
+                .retrieve()
+                .bodyToMono(OrderResponse.class)
+                .doOnNext(response -> ctx.setOrderId(response.id()))
+                .then())
+            .compensate(ctx -> {
+                if (ctx.getOrderId() == null) {
+                    return Mono.empty();
+                }
+                return orderClient.delete(ctx.getOrderId());
+            })
+            .build()
+    )
+    .build();
+
+return engine.execute(context);
+```
+
+Key parity guarantees:
+- `ServiceException` is never retried
+- step-level retry overrides engine-level retry
+- completed steps are compensated in reverse order
+- parallel groups wait for all in-flight steps to finish their current attempt
+- the original failure is preserved and compensation failures are suppressed
+
+The reactive API uses:
+- `ReactiveStep`
+- `ReactiveParallelGroup`
+- `ReactiveStepEngine`
+- optional Reactor `Scheduler` overrides instead of `Executor`
 
 ---
 
@@ -185,7 +264,7 @@ When a timeout fires:
 
 The timeout applies independently to each `forward()` call and each `compensate()` call.
 
-### Cooperative interruption
+### Imperative timeout behavior
 
 Step timeout uses Java's `Future.cancel(true)`, which calls `Thread.interrupt()` on the worker thread. This is **cooperative** — the step handler must be in an interruptible operation for the interruption to take effect immediately:
 
@@ -195,6 +274,16 @@ Step timeout uses Java's `Future.cancel(true)`, which calls `Thread.interrupt()`
 In all cases, the timeout guarantees that the **caller does not wait** longer than the specified duration. However, if the step handler is stuck in a non-interruptible operation, the underlying thread may continue running in the background.
 
 For best results, ensure your step handlers use clients with their own socket/connection timeouts configured. The step timeout acts as a ceiling above those.
+
+### Reactive timeout behavior
+
+`stepengine-reactor` reuses the same `StepTimeoutException`, but timeout is implemented with Reactor operators rather than thread interruption:
+
+- a timed-out `Mono` is cancelled
+- the failure is mapped to `StepTimeoutException`
+- retry and compensation semantics remain the same as the imperative engine
+
+This means the public contract is the same, while the underlying cancellation behavior follows Reactor instead of Java thread interruption.
 
 ---
 
@@ -231,6 +320,8 @@ ParallelGroup.<MyContext>builder()
 ```
 
 Executor resolution order: step → group → virtual threads.
+
+In `stepengine-reactor`, the equivalent override is a Reactor `Scheduler` on `ReactiveStep` or `ReactiveParallelGroup`.
 
 ### Failure behavior
 
