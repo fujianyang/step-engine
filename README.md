@@ -7,7 +7,7 @@ It provides a simple and explicit way to orchestrate multi-step operations with 
 This repository now publishes two artifacts:
 - `stepengine-core` for shared contracts and retry primitives
 - `stepengine` for imperative workflows
-- `stepengine-reactor` for Reactor / WebFlux workflows
+- `stepengine-reactor` for Reactor-based workflows
 
 ---
 
@@ -153,7 +153,7 @@ engine.execute(context);
 
 ### ReactiveStepEngine
 
-For Reactor / WebFlux applications, `ReactiveStepEngine` preserves the same execution model and failure semantics, but step handlers return `Mono<Void>`.
+For Reactor-based applications, `ReactiveStepEngine` preserves the same execution model and failure semantics, but step handlers return `Mono<Void>`.
 
 ```java
 ReactiveStepEngine<MyContext> engine = ReactiveStepEngine.<MyContext>builder()
