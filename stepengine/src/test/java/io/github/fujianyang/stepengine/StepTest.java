@@ -15,7 +15,7 @@ class StepTest {
 
     @Test
     void shouldCreateStepWithoutCompensateUsingOf() {
-        Step<TestContext> step = Step.of("validate", context -> context.value = "ok");
+        Step<TestContext> step = Step.of("validate", context -> {});
 
         assertEquals("validate", step.name());
         assertFalse(step.supportsCompensate());
@@ -27,8 +27,8 @@ class StepTest {
     void shouldCreateStepWithCompensateUsingOf() {
         Step<TestContext> step = Step.of(
             "persist",
-            context -> context.value = "saved",
-            context -> context.value = null
+            context -> {},
+            context -> {}
         );
 
         assertEquals("persist", step.name());
@@ -40,8 +40,8 @@ class StepTest {
     void shouldCreateStepUsingBuilder() {
         Step<TestContext> step = Step.<TestContext>builder()
             .name("create-order")
-            .forward(context -> context.value = "created")
-            .compensate(context -> context.value = "compensated")
+            .forward(context -> {})
+            .compensate(context -> {})
             .build();
 
         assertEquals("create-order", step.name());
@@ -92,7 +92,6 @@ class StepTest {
     }
 
     private static final class TestContext {
-        private String value;
     }
 
     @Test

@@ -307,7 +307,6 @@ class StepEngineParallelTest {
 
     private static final class TestContext {
         private final List<String> events = Collections.synchronizedList(new ArrayList<>());
-        private String value;
     }
 
     private static final class InvalidRequestException extends ServiceException {

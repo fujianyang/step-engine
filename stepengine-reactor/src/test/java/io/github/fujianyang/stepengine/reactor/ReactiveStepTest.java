@@ -23,7 +23,7 @@ class ReactiveStepTest {
     void shouldCreateStepWithoutCompensateUsingOf() {
         ReactiveStep<TestContext> step = ReactiveStep.of(
             "validate",
-            context -> Mono.fromRunnable(() -> context.value = "ok")
+            context -> Mono.empty()
         );
 
         assertEquals("validate", step.name());
@@ -36,8 +36,8 @@ class ReactiveStepTest {
     void shouldCreateStepWithCompensateUsingOf() {
         ReactiveStep<TestContext> step = ReactiveStep.of(
             "persist",
-            context -> Mono.fromRunnable(() -> context.value = "saved"),
-            context -> Mono.fromRunnable(() -> context.value = null)
+            context -> Mono.empty(),
+            context -> Mono.empty()
         );
 
         assertEquals("persist", step.name());
@@ -49,8 +49,8 @@ class ReactiveStepTest {
     void shouldCreateStepUsingBuilder() {
         ReactiveStep<TestContext> step = ReactiveStep.<TestContext>builder()
             .name("create-order")
-            .forward(context -> Mono.fromRunnable(() -> context.value = "created"))
-            .compensate(context -> Mono.fromRunnable(() -> context.value = "compensated"))
+            .forward(context -> Mono.empty())
+            .compensate(context -> Mono.empty())
             .build();
 
         assertEquals("create-order", step.name());
@@ -278,6 +278,5 @@ class ReactiveStepTest {
     }
 
     private static final class TestContext {
-        private String value;
     }
 }
