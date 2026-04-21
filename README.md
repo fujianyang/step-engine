@@ -4,7 +4,7 @@ StepEngine is a lightweight workflow engine for short-running, idempotent workfl
 
 It provides a simple and explicit way to orchestrate multi-step operations with retry and compensation support — without introducing external infrastructure or workflow persistence.
 
-This repository now publishes two artifacts:
+This repository now publishes three artifacts:
 - `stepengine-core` for shared contracts and retry primitives
 - `stepengine` for imperative workflows
 - `stepengine-reactor` for Reactor-based workflows
@@ -86,6 +86,110 @@ StepEngine is not intended for:
 - Scheduling / cron workflows
 
 If you need durable execution and workflow state persistence, consider platforms like [Temporal](https://temporal.io/).
+
+---
+
+## 🧠 Design Highlights
+
+### Orchestration vs. Business Logic
+
+A core design goal is to separate **workflow orchestration concerns** (ordering, retries, error handling, compensation) from **business logic**.
+
+Each step focuses purely on domain responsibilities, while the engine handles:
+- execution sequencing  
+- retry policies  
+- failure classification  
+- compensation (rollback)  
+
+This keeps application code simple and workflows easier to reason about.
+
+---
+
+### Exception-Driven Failure Model
+
+StepEngine uses an **exception-driven model** as the single mechanism for failure handling.
+
+- `ServiceException` represents expected, domain-level failures and is never retried  
+- Other exceptions are treated as technical failures and evaluated by retry policy  
+
+This aligns well with real-world services behaviors, and keeps failure semantics explicit.
+
+---
+
+### Retry Strategy as a First-Class Concern
+
+Retries are built into the execution model rather than handled ad hoc:
+
+- Configurable retry policies (e.g. exponential backoff with jitter)  
+- Per-step retry overrides  
+- Fail-fast behavior for non-retryable errors  
+
+---
+
+### Compensation (Rollback)
+
+StepEngine uses compensation to handle failures across multiple steps:
+
+- Completed steps are compensated in reverse order  
+- Compensation failures are surfaced and attached to the original failure  
+- Parallel groups compensate independently  
+
+This approach favors eventual consistency and avoids the coordination overhead.
+
+---
+
+### Idempotency as a Design Assumption
+
+The engine assumes:
+- Forward steps are **idempotent or safely retryable**  
+- Compensation steps are also idempotent  
+
+This simplifies retry logic and relies on idempotent operations to ensure correctness under retries and re-execution.
+
+---
+
+### Scope: Short-Lived, In-Service Workflows
+
+StepEngine is intentionally scoped for:
+
+- **Short-lived, request-level workflows**  
+- In-service orchestration across multiple dependencies  
+- Low-latency execution without persistence  
+
+It is not intended to replace durable workflow engines like Temporal, but to fill the gap where workflows are:
+
+- too complex for inline service logic  
+- but do not justify external workflow infrastructure  
+
+---
+
+### Trade-offs
+
+Key design trade-offs:
+
+- No built-in persistence → keeps the engine lightweight and embeddable  
+- In-memory execution → optimized for low latency  
+- Sequential-first model with optional parallelism → simplifies reasoning and failure handling  
+
+---
+
+### Evolution
+
+The design evolved through iteration:
+
+- Initial version used `StepOutcome` return types  
+- Transitioned to exception-driven model for cleaner APIs  
+- Refined retry and compensation semantics  
+- Introduced parallel execution and timeout support  
+- Added Reactor-based execution (`stepengine-reactor`) to support non-blocking, reactive workflows while preserving the same core semantics  
+
+---
+
+## 🤖 Development Approach
+
+This project was developed with the assistance of AI tools (such as ChatGPT, Claude Code, and Codex) to accelerate implementation and iteration.
+
+The system design, architecture, and core technical decisions are from my experience working on Microservices.
 
 ---
 
