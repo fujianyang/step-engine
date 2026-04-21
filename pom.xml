@@ -27,7 +27,6 @@
         <version.maven-surefire-plugin>3.5.4</version.maven-surefire-plugin>
 
         <!-- Runtime -->
-        <version.stepengine-core>${project.version}</version.stepengine-core>
         <version.slf4j-api>2.0.17</version.slf4j-api>
         <version.reactor-core>3.7.7</version.reactor-core>
 
@@ -39,6 +38,24 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.github.fujianyang</groupId>
+                <artifactId>stepengine-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.github.fujianyang</groupId>
+                <artifactId>stepengine</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.github.fujianyang</groupId>
+                <artifactId>stepengine-reactor</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
