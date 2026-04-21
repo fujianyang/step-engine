@@ -1,19 +1,22 @@
 package io.github.fujianyang.stepengine;
 
-import io.github.fujianyang.stepengine.exception.ServiceException;
-import io.github.fujianyang.stepengine.exception.StepTimeoutException;
-import io.github.fujianyang.stepengine.retry.ExponentialBackoffRetryPolicy;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+import io.github.fujianyang.stepengine.exception.StepTimeoutException;
+import io.github.fujianyang.stepengine.retry.ExponentialBackoffRetryPolicy;
 
 class StepEngineTimeoutTest {
 

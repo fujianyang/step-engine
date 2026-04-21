@@ -79,12 +79,6 @@ public final class ReactiveStepEngine<C> {
 
     private Mono<Void> executeStepWithRetry(ReactiveStep<C> step,
                                             C context,
-                                            AtomicBoolean doomed) {
-        return executeStepWithRetry(step, context, doomed, null, 1);
-    }
-
-    private Mono<Void> executeStepWithRetry(ReactiveStep<C> step,
-                                            C context,
                                             AtomicBoolean doomed,
                                             Scheduler defaultScheduler) {
         return executeStepWithRetry(step, context, doomed, defaultScheduler, 1);
